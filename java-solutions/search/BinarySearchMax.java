@@ -1,7 +1,7 @@
 package search;
 
 public class BinarySearchMax {
-    // Pred: a -- array, which obtained by assigning a sorted (strictly) descending array
+    // Pred: a != null && a -- array, which obtained by assigning a sorted (strictly) descending array
     //       to the end of an array sorted (strictly) ascending && a.length > 0
     // Post: R == max{a[i]} for i = 0, ..., a.length - 1
     private static int iterativeSearchMax(int[] a) {
@@ -38,7 +38,7 @@ public class BinarySearchMax {
         // R == max{a[i]} for i = 0, ..., a.length - 1
     }
 
-    // Pred: a -- array, which obtained by assigning a sorted (strictly) descending array
+    // Pred: a != null && a -- array, which obtained by assigning a sorted (strictly) descending array
     //       to the end of an array sorted (strictly) ascending && a.length > 0
     //       && l < r && l >= -1 && r < a.length
     // Post: R == max{a[i]} for i = l + 1, ..., r
@@ -70,7 +70,7 @@ public class BinarySearchMax {
         // R == max{a[i]} for i = l + 1, ..., r
     }
 
-    // Pred: a -- array, which obtained by assigning a sorted (strictly) descending array
+    // Pred: a != null && a -- array, which obtained by assigning a sorted (strictly) descending array
     //       to the end of an array sorted (strictly) ascending && a.length > 0
     // Post: R == max{a[i]} for i = 0, ..., a.length - 1
     private static int recursiveSearchMax(int[] a) {
