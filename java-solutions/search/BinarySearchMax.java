@@ -5,7 +5,7 @@ public class BinarySearchMax {
     //       to the end of an array sorted (strictly) ascending && a.length > 0
     // Post: R == max{a[i]} for i = 0, ..., a.length - 1
     private static int iterativeSearchMax(int[] a) {
-        // Q: a -- array, which obtained by assigning a sorted (strictly) descending array
+        // Q: a != null && a -- array, which obtained by assigning a sorted (strictly) descending array
         //    to the end of an array sorted (strictly) ascending && a.length > 0
         int l = -1;
         // Q && l == -1
@@ -43,7 +43,7 @@ public class BinarySearchMax {
     //       && l < r && l >= -1 && r < a.length
     // Post: R == max{a[i]} for i = l + 1, ..., r
     private static int recursiveSearchMax(int[] a, int l, int r) {
-        // Q: a -- array, which obtained by assigning a sorted (strictly) descending array
+        // Q: a != null && a -- array, which obtained by assigning a sorted (strictly) descending array
         //    to the end of an array sorted (strictly) ascending && a.length > 0
         //    && l < r && l >= -1 && r < a.length
         if (r - l == 1) {
@@ -74,7 +74,7 @@ public class BinarySearchMax {
     //       to the end of an array sorted (strictly) ascending && a.length > 0
     // Post: R == max{a[i]} for i = 0, ..., a.length - 1
     private static int recursiveSearchMax(int[] a) {
-        // a -- array, which obtained by assigning a sorted (strictly) descending array
+        // a != null && a -- array, which obtained by assigning a sorted (strictly) descending array
         // to the end of an array sorted (strictly) ascending && a.length > 0
         return recursiveSearchMax(a, -1, a.length - 1);
         // R == max{a[i]} for i = 0, ..., a.length - 1
