@@ -1,13 +1,13 @@
 package search;
 
 public class BinarySearch {
-    // Pred: a -- sorted in descending order
+    // Pred: a -- sorted in non-increasing order
     // Post: forall i = 0, ..., a.length - 1 : a[i] == a'[i]
     //       && R == minimal index i such that a[i] <= x
     // (assert that a[-1] > x >= a[a.length])
     private static int iterativeSearch(int x, int[] a) {
         // Immutability: forall i = 0, ..., a.length - 1 : a[i] == a'[i]
-        //               && a -- sorted in descending order
+        //               && a -- sorted in non-increasing order
         int l = -1;
         // Immutability && l == -1
         int r = a.length;
@@ -38,12 +38,12 @@ public class BinarySearch {
         // && R == minimal index i such that a[i] <= x
     }
 
-    // Pred: a -- sorted in descending order && l < r && a[l] > x && x >= a[r]
+    // Pred: a -- sorted in non-increasing order && l < r && a[l] > x && x >= a[r]
     // Post: forall i = 0, ..., a.length - 1 : a[i] == a'[i]
     //       && R == minimal index l < i <= r such that a[i] <= x
     // (assert that a[-1] > x >= a[a.length])
     private static int recursiveSearch(int x, int[] a, int l, int r) {
-        // Inv: a -- sorted in descending order && forall i = 0...a.length-1 : a[i] == a'[i]
+        // Inv: a -- sorted in non-increasing order && forall i = 0...a.length-1 : a[i] == a'[i]
         //      && l < r && a[l] > x && x >= a[r]
         if (r - l == 1) {
             // Inv && r - l == 1
@@ -58,7 +58,7 @@ public class BinarySearch {
             // => l < m && m < r
             if (a[m] <= x) {
                 // Inv && l < m && m < r && x >= a[m]
-                // =>  a -- sorted in descending order && l < m && a[l] > x && x >= a[m]
+                // =>  a -- sorted in non-increasing order && l < m && a[l] > x && x >= a[m]
                 //     && r - l > m - l >= 1 (range decreased)
                 return recursiveSearch(x, a, l, m);
                 // Inv && l < m && m < r && x >= a[m]
@@ -67,7 +67,7 @@ public class BinarySearch {
                 //     && R == minimal index l < i <= r such that a[i] <= x
             } else {
                 // Inv && l < m && m < r && a[m] > x
-                // =>  a -- sorted in descending order && m < r && a[m] > x && x >= a[r]
+                // =>  a -- sorted in non-increasing order && m < r && a[m] > x && x >= a[r]
                 //     && r - l > r - m >= 1 (range decreased)
                 return recursiveSearch(x, a, m, r);
                 // Inv && l < m && m < r && a[m] > x
@@ -80,12 +80,12 @@ public class BinarySearch {
         // && R == minimal index l < i <= r such that a[i] <= x
     }
 
-    // Pred: a -- sorted in descending order
+    // Pred: a -- sorted in non-increasing order
     // Post: forall i = 0, ..., a.length - 1 : a[i] == a'[i]
     //       && R == minimal index i such that a[i] <= x
     // (assert that a[-1] > x >= a[a.length])
     private static int recursiveSearch(int x, int[] a) {
-        // a -- sorted in descending order && -1 < a.length && a[-1] > x && x >= a[a.length]
+        // a -- sorted in non-increasing order && -1 < a.length && a[-1] > x && x >= a[a.length]
         return recursiveSearch(x, a, -1, a.length);
         // forall i = 0, ..., a.length - 1 : a[i] == a'[i]
         // && R == minimal index -1 < i <= a.length such that a[i] <= x
@@ -94,12 +94,14 @@ public class BinarySearch {
     }
 
     // Pred: args -- array of string representations of integers (int)
-    //       && (int) args[1], ..., (int) args[args.length - 1] -- sorted in descending order
+    //       && forall i = 0, ... args.length - 1 : args[i] != null
+    //       && (int) args[1], ..., (int) args[args.length - 1] -- sorted in non-increasing order
     // Post: print to the console the minimum value of the index i such that (int) args[i + 1] <= (int) args[0]
-    // (считаем, что (int) args[args.length] <= (int) args[0])
+    // (assert that a[-1] > x >= a[a.length])
     public static void main(String[] args) {
         // Q: args -- array of string representations of integers (int)
-        //    && (int) args[1], ..., (int) args[args.length - 1] -- sorted in descending order
+        //    && forall i = 0, ... args.length - 1 : args[i] != null
+        //    && (int) args[1], ..., (int) args[args.length - 1] -- sorted in non-increasing order
         int x = Integer.parseInt(args[0]);
         // Q && x == (int) args[0]
         int[] a = new int[args.length - 1];
@@ -120,7 +122,7 @@ public class BinarySearch {
         }
         // Inv && i == a.length
         // => x == (int) args[0] && forall i = 0, ..., a.length : a[i] = (int) args[i + 1]
-        //    && a -- sorted in descending order
+        //    && a -- sorted in non-increasing order
         assert iterativeSearch(x, a) == recursiveSearch(x, a);
         System.out.println(recursiveSearch(x, a));
         // Inv && i == a.length && printed to the console the minimum value of the index i such that a[i] <= x
