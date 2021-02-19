@@ -81,7 +81,7 @@ public class BinarySearchMax {
     }
 
     // Pred: args != null && args -- array of string representation of int values, which obtained by assigning
-    //       a sorted (strictly) descending array to the end of an array sorted (strictly) ascending && a.length > 0
+    //       a sorted (strictly) descending array to the end of an array sorted (strictly) ascending && args.length > 0
     // Post: print in console max{(int) args[i]} for i = 0, ..., args.length - 1
     public static void main(String[] args) {
         // Q: args != null && args -- array of string representation of int values, which obtained by assigning
