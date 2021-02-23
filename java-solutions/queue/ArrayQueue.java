@@ -6,11 +6,6 @@ package queue;
 
 // Inv:
 // n >= 0 && forall i = 1, ..., n : x_i != null
-// && [ (l == 0 && r == -1)
-//      || (0 <= l <= r && r - l + 1 == n && forall i = l, ..., r : a[i] == x_(i - l + 1))
-//      || (0 <= r < l && a.length - l + 1 + r == n
-//          && forall i = l, ..., a.length - 1 : a[i] == x_(i - l + 1)
-//          && forall i = 0, ..., r : a[i] == x_(a.length - l + 1 + i)) ]
 
 public class ArrayQueue {
     private int n = 0, l = 0, r = -1;
