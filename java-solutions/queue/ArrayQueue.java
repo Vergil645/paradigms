@@ -10,17 +10,36 @@ package queue;
 // Immutability(this):
 // this.n == this.n' && forall i = 1, ..., this.n' : this.q[i] == this.q'[i]
 
+import java.util.Arrays;
+
 public class ArrayQueue {
-    private int n = 0, l = 0, r = -1;
-    private Object[] a = new Object[2];
+    private int n, l;
+    private Object[] a;
+
+    // Pred: true
+    // Post: this.n == 0
+    public ArrayQueue() {
+        n = 0;
+        l = 0;
+        a = new Object[2];
+    }
 
     // Pred: x != null
     // Post: this.n == this.n' + 1 && this.q[n] == x
     //       && forall i = 1, ..., this.n' : this.q[i] == this.q'[i]
     public void enqueue(Object x) {
         ensureCapacity(n + 1);
-        r = r + 1 < a.length ? r + 1 : 0;
-        a[r] = x;
+        a[(l + n) % a.length] = x;
+        n++;
+    }
+
+    // Pred: x != null
+    // Post: this.n == this.n' + 1 && this.q[1] == x
+    //       && forall i = 2, ..., this.n : this.q[i] == this.q'[i - 1]
+    public void push(Object x) {
+        ensureCapacity(n + 1);
+        l = l > 0 ? l - 1 : a.length - 1;
+        a[l] = x;
         n++;
     }
 
@@ -28,6 +47,12 @@ public class ArrayQueue {
     // Post: R == this.q'[1] && Immutability(this)
     public Object element() {
         return a[l];
+    }
+
+    // Pred: true
+    // Post: R == this.q'[this.n'] && Immutability(this)
+    public Object peek() {
+        return a[(l + n - 1) % a.length];
     }
 
     // Pred: this.n > 0
@@ -39,6 +64,32 @@ public class ArrayQueue {
         l = l + 1 < a.length ? l + 1 : 0;
         n--;
         return tmp;
+    }
+
+    // Pred: this.n > 0
+    // Post: R == this.q'[this.n'] && this.n == this.n' - 1
+    //       && forall i = 1, ..., this.n : this.q[i] == this.q'[i]
+    public Object remove() {
+        n--;
+        Object tmp = a[(l + n) % a.length];
+        a[(l + n) % a.length] = null;
+        return tmp;
+    }
+
+    // Pred: true
+    // Post: R == this.q.toArray() && Immutability(this)
+    public Object[] toArray() {
+        Object[] array = new Object[n];
+        for (int i = 0; i < n; i++) {
+            array[i] = a[(l + i) % a.length];
+        }
+        return array;
+    }
+
+    // Pred: true
+    // Post: R == this.q.toStr() && Immutability(this)
+    public String toStr() {
+        return Arrays.toString(toArray());
     }
 
     // Pred: true
@@ -60,19 +111,13 @@ public class ArrayQueue {
             a[(l + i) % a.length] = null;
         }
         l = 0;
-        r = -1;
         n = 0;
     }
 
     private void ensureCapacity(int capacity) {
         if (capacity > a.length) {
-            Object[] tmp = new Object[capacity * 2];
-            for (int i = 0; i < n; i++) {
-                tmp[i] = a[(l + i) % a.length];
-            }
-            a = tmp;
+            a = Arrays.copyOf(toArray(), 2 * capacity);
             l = 0;
-            r = n - 1;
         }
     }
 }

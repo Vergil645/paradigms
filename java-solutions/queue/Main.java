@@ -1,47 +1,26 @@
 package queue;
 
+import java.util.Arrays;
+
 public class Main {
     private static void showArrayQueueModule() {
         System.out.println("================");
         System.out.println("ArrayQueueModule");
         System.out.println("================\n");
-
-        System.out.print("Add to Queue elements: ");
-        for (int x = 1; x <= 10; x++) {
-            System.out.print(x + " ");
-            ArrayQueueModule.enqueue(x);
+        for (int i = 0; i < 10; i++) {
+            ArrayQueueModule.enqueue(i);
         }
-        System.out.println("\nQueue size: " + ArrayQueueModule.size() + "\n");
-
-        System.out.print("Extract first 5 elements: ");
-        for (int i = 1; i <= 5; i++) {
-            System.out.print(ArrayQueueModule.dequeue() + " ");
+        for (int i = 1; i < 10; i++) {
+            ArrayQueueModule.push(-i);
         }
-        System.out.println("\nQueue size: " + ArrayQueueModule.size() + "\n");
-
-        System.out.print("Add to Queue elements: ");
-        for (int x = 11; x <= 20; x++) {
-            System.out.print(x + " ");
-            ArrayQueueModule.enqueue(x);
-        }
-        System.out.println("\nQueue size: " + ArrayQueueModule.size() + "\n");
-
-        System.out.print("Extract all elements from Queue: ");
-        while (!ArrayQueueModule.isEmpty()) {
-            System.out.print(ArrayQueueModule.dequeue() + " ");
-        }
-        System.out.println("\nQueue size: " + ArrayQueueModule.size() + "\n");
-
-        System.out.print("Add to Queue elements: ");
-        for (int x = 1; x <= 10; x++) {
-            System.out.print(x + " ");
-            ArrayQueueModule.enqueue(x);
-        }
-        System.out.println("\nQueue size: " + ArrayQueueModule.size() + "\n");
-
-        System.out.println("Clear Queue");
+        System.out.println(ArrayQueueModule.dequeue());
+        System.out.println(ArrayQueueModule.remove());
+        System.out.println(ArrayQueueModule.size());
+        System.out.println(Arrays.toString(ArrayQueueModule.toArray()));
+        System.out.println(ArrayQueueModule.toStr());
         ArrayQueueModule.clear();
-        System.out.println("Queue size: " + ArrayQueueModule.size() + "\n");
+        System.out.println(ArrayQueueModule.size());
+        System.out.println();
     }
 
     private static void showArrayQueueADT() {
@@ -52,53 +31,35 @@ public class Main {
         ArrayQueueADT queue1 = new ArrayQueueADT();
         ArrayQueueADT queue2 = new ArrayQueueADT();
 
-        System.out.print("Add to Queue_1 elements: ");
-        for (int x = 1; x <= 10; x++) {
-            System.out.print(x + " ");
-            ArrayQueueADT.enqueue(queue1, x);
+        for (int i = 0; i < 10; i++) {
+            ArrayQueueADT.enqueue(queue1, i);
         }
-        System.out.println("\nQueue_1 size: " + ArrayQueueADT.size(queue1) + "\n");
-
-        System.out.print("Add to Queue_2 elements: ");
-        for (int x = 12; x <= 30; x++) {
-            System.out.print(x + " ");
-            ArrayQueueADT.enqueue(queue2, x);
+        for (int i = 1; i < 10; i++) {
+            ArrayQueueADT.push(queue1, -i);
         }
-        System.out.println("\nQueue_2 size: " + ArrayQueueADT.size(queue2) + "\n");
-
-        System.out.print("Extract all elements from Queue_1: ");
-        while (!ArrayQueueADT.isEmpty(queue1)) {
-            System.out.print(ArrayQueueADT.dequeue(queue1) + " ");
-        }
-        System.out.println("\nQueue_1 size: " + ArrayQueueADT.size(queue1) + "\n");
-
-        System.out.print("Extract all elements from Queue_2: ");
-        while (!ArrayQueueADT.isEmpty(queue2)) {
-            System.out.print(ArrayQueueADT.dequeue(queue2) + " ");
-        }
-        System.out.println("\nQueue_2 size: " + ArrayQueueADT.size(queue2) + "\n");
-
-        System.out.print("Add to Queue_1 elements: ");
-        for (int x = 1; x <= 10; x++) {
-            System.out.print(-x + " ");
-            ArrayQueueADT.enqueue(queue1, -x);
-        }
-        System.out.println("\nQueue_1 size: " + ArrayQueueADT.size(queue1) + "\n");
-
-        System.out.print("Add to Queue_2 elements: ");
-        for (int x = 12; x <= 30; x++) {
-            System.out.print(-x + " ");
-            ArrayQueueADT.enqueue(queue2, -x);
-        }
-        System.out.println("\nQueue_2 size: " + ArrayQueueADT.size(queue2) + "\n");
-
-        System.out.println("Clear Queue_1");
+        System.out.println(ArrayQueueADT.dequeue(queue1));
+        System.out.println(ArrayQueueADT.remove(queue1));
+        System.out.println(ArrayQueueADT.size(queue1));
+        System.out.println(Arrays.toString(ArrayQueueADT.toArray(queue1)));
+        System.out.println(ArrayQueueADT.toStr(queue1));
         ArrayQueueADT.clear(queue1);
-        System.out.println("Queue_1 size: " + ArrayQueueADT.size(queue1) + "\n");
+        System.out.println(ArrayQueueADT.size(queue1));
+        System.out.println();
 
-        System.out.println("Clear Queue_2");
+        for (int i = 10; i < 20; i++) {
+            ArrayQueueADT.enqueue(queue2, i);
+        }
+        for (int i = 11; i < 20; i++) {
+            ArrayQueueADT.push(queue2, -i);
+        }
+        System.out.println(ArrayQueueADT.dequeue(queue2));
+        System.out.println(ArrayQueueADT.remove(queue2));
+        System.out.println(ArrayQueueADT.size(queue2));
+        System.out.println(Arrays.toString(ArrayQueueADT.toArray(queue2)));
+        System.out.println(ArrayQueueADT.toStr(queue2));
         ArrayQueueADT.clear(queue2);
-        System.out.println("Queue_2 size: " + ArrayQueueADT.size(queue2) + "\n");
+        System.out.println(ArrayQueueADT.size(queue2));
+        System.out.println();
     }
 
     private static void showArrayQueue() {
@@ -109,53 +70,35 @@ public class Main {
         ArrayQueue queue1 = new ArrayQueue();
         ArrayQueue queue2 = new ArrayQueue();
 
-        System.out.print("Add to Queue_1 elements: ");
-        for (int x = 1; x <= 10; x++) {
-            System.out.print(x + " ");
-            queue1.enqueue(x);
+        for (int i = 0; i < 10; i++) {
+            queue1.enqueue(i);
         }
-        System.out.println("\nQueue_1 size: " + queue1.size() + "\n");
-
-        System.out.print("Add to Queue_2 elements: ");
-        for (int x = 12; x <= 30; x++) {
-            System.out.print(x + " ");
-            queue2.enqueue(x);
+        for (int i = 1; i < 10; i++) {
+            queue1.push(-i);
         }
-        System.out.println("\nQueue_2 size: " + queue2.size() + "\n");
-
-        System.out.print("Extract all elements from Queue_1: ");
-        while (!queue1.isEmpty()) {
-            System.out.print(queue1.dequeue() + " ");
-        }
-        System.out.println("\nQueue_1 size: " + queue1.size() + "\n");
-
-        System.out.print("Extract all elements from Queue_2: ");
-        while (!queue2.isEmpty()) {
-            System.out.print(queue2.dequeue() + " ");
-        }
-        System.out.println("\nQueue_2 size: " + queue2.size() + "\n");
-
-        System.out.print("Add to Queue_1 elements: ");
-        for (int x = 1; x <= 10; x++) {
-            System.out.print(-x + " ");
-            queue1.enqueue(-x);
-        }
-        System.out.println("\nQueue_1 size: " + queue1.size() + "\n");
-
-        System.out.print("Add to Queue_2 elements: ");
-        for (int x = 12; x <= 30; x++) {
-            System.out.print(-x + " ");
-            queue2.enqueue(-x);
-        }
-        System.out.println("\nQueue_2 size: " + queue2.size() + "\n");
-
-        System.out.println("Clear Queue_1");
+        System.out.println(queue1.dequeue());
+        System.out.println(queue1.remove());
+        System.out.println(queue1.size());
+        System.out.println(Arrays.toString(queue1.toArray()));
+        System.out.println(queue1.toStr());
         queue1.clear();
-        System.out.println("Queue_1 size: " + queue1.size() + "\n");
+        System.out.println(queue1.size());
+        System.out.println();
 
-        System.out.println("Clear Queue_2");
+        for (int i = 10; i < 20; i++) {
+            queue2.enqueue(i);
+        }
+        for (int i = 11; i < 20; i++) {
+            queue2.push(-i);
+        }
+        System.out.println(queue2.dequeue());
+        System.out.println(queue2.remove());
+        System.out.println(queue2.size());
+        System.out.println(Arrays.toString(queue2.toArray()));
+        System.out.println(queue2.toStr());
         queue2.clear();
-        System.out.println("Queue_2 size: " + queue2.size() + "\n");
+        System.out.println(queue2.size());
+        System.out.println();
     }
 
     public static void main(String[] args) {
