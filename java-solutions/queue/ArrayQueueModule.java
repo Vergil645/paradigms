@@ -51,6 +51,7 @@ public class ArrayQueueModule {
     // Pred: n > 0
     // Post: R == q'[1] && n == n' - 1 && forall i = 2, ..., n' : q[i - 1] == q'[i]
     public static Object dequeue() {
+        assert n > 0;
         Object tmp = a[l];
         a[l] = null;
         l = (l + 1) % a.length;
@@ -61,6 +62,7 @@ public class ArrayQueueModule {
     // Pred: n > 0
     // Post: R == q'[n'] && n == n' - 1 && forall i = 1, ..., n : q[i] == q'[i]
     public static Object remove() {
+        assert n > 0;
         n--;
         Object tmp = a[(l + n) % a.length];
         a[(l + n) % a.length] = null;

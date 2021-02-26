@@ -62,6 +62,7 @@ public class ArrayQueue {
     // Post: R == this.q'[1] && this.n == this.n' - 1
     //       && forall i = 2, ..., this.n' : this.q[i - 1] == this.q'[i]
     public Object dequeue() {
+        assert n > 0;
         Object tmp = a[l];
         a[l] = null;
         l = (l + 1) % a.length;
@@ -73,6 +74,7 @@ public class ArrayQueue {
     // Post: R == this.q'[this.n'] && this.n == this.n' - 1
     //       && forall i = 1, ..., this.n : this.q[i] == this.q'[i]
     public Object remove() {
+        assert n > 0;
         n--;
         Object tmp = a[(l + n) % a.length];
         a[(l + n) % a.length] = null;

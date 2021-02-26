@@ -59,6 +59,7 @@ public class ArrayQueueADT {
     //       && forall i = 2, ..., queue.n' : queue.q[i - 1] == queue.q'[i]
     public static Object dequeue(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
+        assert queue.n > 0;
         Object tmp = queue.a[queue.l];
         queue.a[queue.l] = null;
         queue.l = (queue.l + 1) % queue.a.length;
@@ -71,6 +72,7 @@ public class ArrayQueueADT {
     //       && forall i = 1, ..., queue.n : queue.q[i] == queue.q'[i]
     public static Object remove(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
+        assert queue.n > 0;
         queue.n--;
         Object tmp = queue.a[(queue.l + queue.n) % queue.a.length];
         queue.a[(queue.l + queue.n) % queue.a.length] = null;
