@@ -11,6 +11,7 @@ package queue;
 // n == n' && forall i = 1, ..., n' : q[i] == q'[i]
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class ArrayQueueModule {
     private static int n = 0, l = 0;
@@ -19,6 +20,7 @@ public class ArrayQueueModule {
     // Pred: x != null
     // Post: n == n' + 1 && q[n] == x && forall i = 1, ..., n' : q[i] == q'[i]
     public static void enqueue(Object x) {
+        Objects.requireNonNull(x);
         ensureCapacity(n + 1);
         a[(l + n) % a.length] = x;
         n++;
@@ -27,8 +29,9 @@ public class ArrayQueueModule {
     // Pred: x != null
     // Post: n == n' + 1 && q[1] == x && forall i = 2, ..., n : q[i] == q'[i - 1]
     public static void push(Object x) {
+        Objects.requireNonNull(x);
         ensureCapacity(n + 1);
-        l = l > 0 ? l - 1 : a.length - 1;
+        l = (l - 1 + a.length) % a.length;
         a[l] = x;
         n++;
     }
@@ -50,7 +53,7 @@ public class ArrayQueueModule {
     public static Object dequeue() {
         Object tmp = a[l];
         a[l] = null;
-        l = l + 1 < a.length ? l + 1 : 0;
+        l = (l + 1) % a.length;
         n--;
         return tmp;
     }
@@ -65,7 +68,7 @@ public class ArrayQueueModule {
     }
 
     // Pred: true
-    // Post: R == q.toArray() && Immutability
+    // Post: R == q'.toArray() && Immutability
     public static Object[] toArray() {
         Object[] array = new Object[n];
         for (int i = 0; i < n; i++) {
@@ -75,7 +78,7 @@ public class ArrayQueueModule {
     }
 
     // Pred: true
-    // Post: R == q.toStr() && Immutability
+    // Post: R == q'.toStr() && Immutability
     public static String toStr() {
         return Arrays.toString(toArray());
     }

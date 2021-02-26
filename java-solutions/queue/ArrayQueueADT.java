@@ -22,6 +22,7 @@ public class ArrayQueueADT {
     //       && forall i = 1, ..., queue.n' : queue.q[i] == queue.q'[i]
     public static void enqueue(ArrayQueueADT queue, Object x) {
         Objects.requireNonNull(queue);
+        Objects.requireNonNull(x);
         ensureCapacity(queue, queue.n + 1);
         queue.a[(queue.l + queue.n) % queue.a.length] = x;
         queue.n++;
@@ -32,8 +33,9 @@ public class ArrayQueueADT {
     //       && forall i = 2, ..., queue.n : queue.q[i] == queue.q'[i - 1]
     public static void push(ArrayQueueADT queue, Object x) {
         Objects.requireNonNull(queue);
+        Objects.requireNonNull(x);
         ensureCapacity(queue, queue.n + 1);
-        queue.l = queue.l > 0 ? queue.l - 1 : queue.a.length - 1;
+        queue.l = (queue.l - 1 + queue.a.length) % queue.a.length;
         queue.a[queue.l] = x;
         queue.n++;
     }
@@ -59,7 +61,7 @@ public class ArrayQueueADT {
         Objects.requireNonNull(queue);
         Object tmp = queue.a[queue.l];
         queue.a[queue.l] = null;
-        queue.l = queue.l + 1 < queue.a.length ? queue.l + 1 : 0;
+        queue.l = (queue.l + 1) % queue.a.length;
         queue.n--;
         return tmp;
     }
@@ -76,7 +78,7 @@ public class ArrayQueueADT {
     }
 
     // Pred: queue != null
-    // Post: R == queue.q.toArray() && Immutability(queue)
+    // Post: R == queue.q'.toArray() && Immutability(queue)
     public static Object[] toArray(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
         Object[] array = new Object[queue.n];
@@ -87,7 +89,7 @@ public class ArrayQueueADT {
     }
 
     // Pred: queue != null
-    // Post: R == queue.q.toStr() && Immutability(queue)
+    // Post: R == queue.q'.toStr() && Immutability(queue)
     public static String toStr(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
         return Arrays.toString(toArray(queue));

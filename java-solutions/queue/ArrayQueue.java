@@ -11,6 +11,7 @@ package queue;
 // this.n == this.n' && forall i = 1, ..., this.n' : this.q[i] == this.q'[i]
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class ArrayQueue {
     private int n, l;
@@ -28,6 +29,7 @@ public class ArrayQueue {
     // Post: this.n == this.n' + 1 && this.q[n] == x
     //       && forall i = 1, ..., this.n' : this.q[i] == this.q'[i]
     public void enqueue(Object x) {
+        Objects.requireNonNull(x);
         ensureCapacity(n + 1);
         a[(l + n) % a.length] = x;
         n++;
@@ -37,8 +39,9 @@ public class ArrayQueue {
     // Post: this.n == this.n' + 1 && this.q[1] == x
     //       && forall i = 2, ..., this.n : this.q[i] == this.q'[i - 1]
     public void push(Object x) {
+        Objects.requireNonNull(x);
         ensureCapacity(n + 1);
-        l = l > 0 ? l - 1 : a.length - 1;
+        l = (l - 1 + a.length) % a.length;
         a[l] = x;
         n++;
     }
@@ -61,7 +64,7 @@ public class ArrayQueue {
     public Object dequeue() {
         Object tmp = a[l];
         a[l] = null;
-        l = l + 1 < a.length ? l + 1 : 0;
+        l = (l + 1) % a.length;
         n--;
         return tmp;
     }
@@ -77,7 +80,7 @@ public class ArrayQueue {
     }
 
     // Pred: true
-    // Post: R == this.q.toArray() && Immutability(this)
+    // Post: R == this.q'.toArray() && Immutability(this)
     public Object[] toArray() {
         Object[] array = new Object[n];
         for (int i = 0; i < n; i++) {
@@ -87,7 +90,7 @@ public class ArrayQueue {
     }
 
     // Pred: true
-    // Post: R == this.q.toStr() && Immutability(this)
+    // Post: R == this.q'.toStr() && Immutability(this)
     public String toStr() {
         return Arrays.toString(toArray());
     }
