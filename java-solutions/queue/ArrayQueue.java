@@ -84,18 +84,12 @@ public class ArrayQueue {
     // Pred: true
     // Post: R == this.q'.toArray() && Immutability(this)
     public Object[] toArray() {
-        Object[] array = new Object[n];
-        //:NOTE: ручное копирование массива
-        for (int i = 0; i < n; i++) {
-            array[i] = a[(l + i) % a.length];
-        }
-        return array;
+        return toArray(n);
     }
 
     // Pred: true
-    // Post: R == this.q'.toStr() && Immutability(this)
+    // Post: R == this.q'.toString() && Immutability(this)
     public String toStr() {
-        //:NOTE: два прохода по массиву..
         return Arrays.toString(toArray());
     }
 
@@ -123,8 +117,19 @@ public class ArrayQueue {
 
     private void ensureCapacity(int capacity) {
         if (capacity > a.length) {
-            a = Arrays.copyOf(toArray(), 2 * capacity);
+            a = toArray(2 * capacity);
             l = 0;
         }
+    }
+
+    private Object[] toArray(int capacity) {
+        Object[] array = new Object[capacity];
+        if (l + n - 1 < a.length) {
+            System.arraycopy(a, l, array, 0, n);
+        } else {
+            System.arraycopy(a, l, array, 0, a.length - l);
+            System.arraycopy(a, 0, array, a.length - l, l + n - a.length);
+        }
+        return array;
     }
 }

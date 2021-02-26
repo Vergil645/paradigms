@@ -72,15 +72,11 @@ public class ArrayQueueModule {
     // Pred: true
     // Post: R == q'.toArray() && Immutability
     public static Object[] toArray() {
-        Object[] array = new Object[n];
-        for (int i = 0; i < n; i++) {
-            array[i] = a[(l + i) % a.length];
-        }
-        return array;
+        return toArray(n);
     }
 
     // Pred: true
-    // Post: R == q'.toStr() && Immutability
+    // Post: R == q'.toString() && Immutability
     public static String toStr() {
         return Arrays.toString(toArray());
     }
@@ -109,8 +105,19 @@ public class ArrayQueueModule {
 
     private static void ensureCapacity(int capacity) {
         if (capacity > a.length) {
-            a = Arrays.copyOf(toArray(), 2 * capacity);
+            a = toArray(2 * capacity);
             l = 0;
         }
+    }
+
+    private static Object[] toArray(int capacity) {
+        Object[] array = new Object[capacity];
+        if (l + n - 1 < a.length) {
+            System.arraycopy(a, l, array, 0, n);
+        } else {
+            System.arraycopy(a, l, array, 0, a.length - l);
+            System.arraycopy(a, 0, array, a.length - l, l + n - a.length);
+        }
+        return array;
     }
 }

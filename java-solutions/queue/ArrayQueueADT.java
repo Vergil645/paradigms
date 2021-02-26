@@ -83,15 +83,11 @@ public class ArrayQueueADT {
     // Post: R == queue.q'.toArray() && Immutability(queue)
     public static Object[] toArray(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
-        Object[] array = new Object[queue.n];
-        for (int i = 0; i < queue.n; i++) {
-            array[i] = queue.a[(queue.l + i) % queue.a.length];
-        }
-        return array;
+        return toArray(queue, queue.n);
     }
 
     // Pred: queue != null
-    // Post: R == queue.q'.toStr() && Immutability(queue)
+    // Post: R == queue.q'.toString() && Immutability(queue)
     public static String toStr(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
         return Arrays.toString(toArray(queue));
@@ -124,8 +120,21 @@ public class ArrayQueueADT {
 
     private static void ensureCapacity(ArrayQueueADT queue, int capacity) {
         if (capacity > queue.a.length) {
-            queue.a = Arrays.copyOf(toArray(queue), 2 * capacity);
+            queue.a = toArray(queue, 2 * capacity);
             queue.l = 0;
         }
+    }
+
+    private static Object[] toArray(ArrayQueueADT queue, int capacity) {
+        Object[] array = new Object[capacity];
+        if (queue.l + queue.n - 1 < queue.a.length) {
+            System.arraycopy(queue.a, queue.l, array, 0, queue.n);
+        } else {
+            System.arraycopy(queue.a, queue.l, array, 0, queue.a.length - queue.l);
+            System.arraycopy(queue.a, 0,
+                    array, queue.a.length - queue.l,
+                    queue.l + queue.n - queue.a.length);
+        }
+        return array;
     }
 }
