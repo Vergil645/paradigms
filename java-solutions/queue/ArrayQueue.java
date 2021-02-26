@@ -85,6 +85,7 @@ public class ArrayQueue {
     // Post: R == this.q'.toArray() && Immutability(this)
     public Object[] toArray() {
         Object[] array = new Object[n];
+        //:NOTE: ручное копирование массива
         for (int i = 0; i < n; i++) {
             array[i] = a[(l + i) % a.length];
         }
@@ -94,6 +95,7 @@ public class ArrayQueue {
     // Pred: true
     // Post: R == this.q'.toStr() && Immutability(this)
     public String toStr() {
+        //:NOTE: два прохода по массиву..
         return Arrays.toString(toArray());
     }
 
