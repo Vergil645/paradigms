@@ -46,15 +46,17 @@ public class ArrayQueue {
         n++;
     }
 
-    // Pred: true
+    // Pred: this.n > 0
     // Post: R == this.q'[1] && Immutability(this)
     public Object element() {
+        assert n > 0;
         return a[l];
     }
 
-    // Pred: true
+    // Pred: this.n > 0
     // Post: R == this.q'[this.n'] && Immutability(this)
     public Object peek() {
+        assert n > 0;
         return a[(l + n - 1) % a.length];
     }
 
@@ -84,7 +86,7 @@ public class ArrayQueue {
     // Pred: true
     // Post: R == this.q'.toArray() && Immutability(this)
     public Object[] toArray() {
-        return toArray(n);
+        return rebuild(n);
     }
 
     // Pred: true
@@ -108,8 +110,11 @@ public class ArrayQueue {
     // Pred: true
     // Post: this.n == 0
     public void clear() {
-        for (int i = 0; i < n; i++) {
-            a[(l + i) % a.length] = null;
+        if (l + n - 1 < a.length) {
+            Arrays.fill(a, l, l + n, null);
+        } else {
+            Arrays.fill(a, l, a.length, null);
+            Arrays.fill(a, 0, l + n - a.length, null);
         }
         l = 0;
         n = 0;
@@ -117,12 +122,12 @@ public class ArrayQueue {
 
     private void ensureCapacity(int capacity) {
         if (capacity > a.length) {
-            a = toArray(2 * capacity);
+            a = rebuild(2 * capacity);
             l = 0;
         }
     }
 
-    private Object[] toArray(int capacity) {
+    private Object[] rebuild(int capacity) {
         Object[] array = new Object[capacity];
         if (l + n - 1 < a.length) {
             System.arraycopy(a, l, array, 0, n);

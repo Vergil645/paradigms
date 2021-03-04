@@ -40,17 +40,19 @@ public class ArrayQueueADT {
         queue.n++;
     }
 
-    // Pred: queue != null
+    // Pred: queue != null && queue.n > 0
     // Post: R == queue.q'[1] && Immutability(queue)
     public static Object element(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
+        assert queue.n > 0;
         return queue.a[queue.l];
     }
 
-    // Pred: queue != null
+    // Pred: queue != null && queue.n > 0
     // Post: R == queue.q'[queue.n'] && Immutability(queue)
     public static Object peek(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
+        assert queue.n > 0;
         return queue.a[(queue.l + queue.n - 1) % queue.a.length];
     }
 
@@ -83,7 +85,7 @@ public class ArrayQueueADT {
     // Post: R == queue.q'.toArray() && Immutability(queue)
     public static Object[] toArray(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
-        return toArray(queue, queue.n);
+        return rebuild(queue, queue.n);
     }
 
     // Pred: queue != null
@@ -111,8 +113,11 @@ public class ArrayQueueADT {
     // Post: queue.n == 0
     public static void clear(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
-        for (int i = 0; i < queue.n; i++) {
-            queue.a[(queue.l + i) % queue.a.length] = null;
+        if (queue.l + queue.n - 1 < queue.a.length) {
+            Arrays.fill(queue.a, queue.l, queue.l + queue.n, null);
+        } else {
+            Arrays.fill(queue.a, queue.l, queue.a.length, null);
+            Arrays.fill(queue.a, 0, queue.l + queue.n - queue.a.length, null);
         }
         queue.l = 0;
         queue.n = 0;
@@ -120,12 +125,12 @@ public class ArrayQueueADT {
 
     private static void ensureCapacity(ArrayQueueADT queue, int capacity) {
         if (capacity > queue.a.length) {
-            queue.a = toArray(queue, 2 * capacity);
+            queue.a = rebuild(queue, 2 * capacity);
             queue.l = 0;
         }
     }
 
-    private static Object[] toArray(ArrayQueueADT queue, int capacity) {
+    private static Object[] rebuild(ArrayQueueADT queue, int capacity) {
         Object[] array = new Object[capacity];
         if (queue.l + queue.n - 1 < queue.a.length) {
             System.arraycopy(queue.a, queue.l, array, 0, queue.n);

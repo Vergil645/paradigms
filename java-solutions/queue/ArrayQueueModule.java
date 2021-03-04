@@ -36,15 +36,17 @@ public class ArrayQueueModule {
         n++;
     }
 
-    // Pred: true
+    // Pred: n > 0
     // Post: R == q'[1] && Immutability
     public static Object element() {
+        assert n > 0;
         return a[l];
     }
 
-    // Pred: true
+    // Pred: n > 0
     // Post: R == q'[n'] && Immutability
     public static Object peek() {
+        assert n > 0;
         return a[(l + n - 1) % a.length];
     }
 
@@ -72,7 +74,7 @@ public class ArrayQueueModule {
     // Pred: true
     // Post: R == q'.toArray() && Immutability
     public static Object[] toArray() {
-        return toArray(n);
+        return rebuild(n);
     }
 
     // Pred: true
@@ -96,8 +98,11 @@ public class ArrayQueueModule {
     // Pred: true
     // Post: n == 0
     public static void clear() {
-        for (int i = 0; i < n; i++) {
-            a[(l + i) % a.length] = null;
+        if (l + n - 1 < a.length) {
+            Arrays.fill(a, l, l + n, null);
+        } else {
+            Arrays.fill(a, l, a.length, null);
+            Arrays.fill(a, 0, l + n - a.length, null);
         }
         l = 0;
         n = 0;
@@ -105,12 +110,12 @@ public class ArrayQueueModule {
 
     private static void ensureCapacity(int capacity) {
         if (capacity > a.length) {
-            a = toArray(2 * capacity);
+            a = rebuild(2 * capacity);
             l = 0;
         }
     }
 
-    private static Object[] toArray(int capacity) {
+    private static Object[] rebuild(int capacity) {
         Object[] array = new Object[capacity];
         if (l + n - 1 < a.length) {
             System.arraycopy(a, l, array, 0, n);
