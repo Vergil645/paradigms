@@ -80,7 +80,15 @@ public class ArrayQueueModule {
     // Pred: true
     // Post: R == q'.toString() && Immutability
     public static String toStr() {
-        return Arrays.toString(toArray());
+        StringBuilder str = new StringBuilder().append('[');
+        for (int i = 0; i < n - 1; i++) {
+            str.append(a[(l + i) % a.length]).append(", ");
+        }
+        if (n > 0) {
+            return str.append(a[(l + n - 1) % a.length]).append(']').toString();
+        } else {
+            return str.append(']').toString();
+        }
     }
 
     // Pred: true

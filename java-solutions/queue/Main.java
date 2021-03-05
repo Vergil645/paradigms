@@ -7,7 +7,7 @@ public class Main {
         System.out.println("================");
         System.out.println("ArrayQueueModule");
         System.out.println("================\n");
-        
+
         for (int i = 0; i < 10; i++) {
             ArrayQueueModule.enqueue(i);
         }
