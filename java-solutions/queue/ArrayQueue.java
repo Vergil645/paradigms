@@ -97,10 +97,9 @@ public class ArrayQueue {
             str.append(a[(l + i) % a.length]).append(", ");
         }
         if (n > 0) {
-            return str.append(a[(l + n - 1) % a.length]).append(']').toString();
-        } else {
-            return str.append(']').toString();
+            str.append(a[(l + n - 1) % a.length]);
         }
+        return str.append(']').toString();
     }
 
     // Pred: true
