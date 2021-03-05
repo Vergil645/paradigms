@@ -97,10 +97,9 @@ public class ArrayQueueADT {
             str.append(queue.a[(queue.l + i) % queue.a.length]).append(", ");
         }
         if (queue.n > 0) {
-            return str.append(queue.a[(queue.l + queue.n - 1) % queue.a.length]).append(']').toString();
-        } else {
-            return str.append(']').toString();
+            str.append(queue.a[(queue.l + queue.n - 1) % queue.a.length]);
         }
+        return str.append(']').toString();
     }
 
     // Pred: queue != null
