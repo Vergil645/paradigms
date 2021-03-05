@@ -92,15 +92,7 @@ public class ArrayQueueADT {
     // Post: R == queue.q'.toString() && Immutability(queue)
     public static String toStr(ArrayQueueADT queue) {
         Objects.requireNonNull(queue);
-        StringBuilder str = new StringBuilder().append('[');
-        for (int i = 0; i < queue.n - 1; i++) {
-            str.append(queue.a[(queue.l + i) % queue.a.length]).append(", ");
-        }
-        if (queue.n > 0) {
-            return str.append(queue.a[(queue.l + queue.n - 1) % queue.a.length]).append(']').toString();
-        } else {
-            return str.append(']').toString();
-        }
+        return Arrays.toString(toArray(queue));
     }
 
     // Pred: queue != null
