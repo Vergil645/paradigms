@@ -1,38 +1,23 @@
 package queue;
 
-// Model:
-// [q_1, q_2, ..., q_n]
-// n -- capacity of queue
-
-// Inv:
-// n >= 0 && forall i = 1, ..., n : q[i] != null
-
-// Immutability(this):
-// this.n == this.n' && forall i = 1, ..., this.n' : this.q[i] == this.q'[i]
-
 import java.util.Arrays;
 import java.util.Objects;
 
-public class ArrayQueue {
-    private int n, l;
+public class ArrayQueue extends AbstractQueue {
+    private int l;
     private Object[] a;
 
     // Pred: true
     // Post: this.n == 0
     public ArrayQueue() {
-        n = 0;
         l = 0;
         a = new Object[2];
     }
 
-    // Pred: x != null
-    // Post: this.n == this.n' + 1 && this.q[n] == x
-    //       && forall i = 1, ..., this.n' : this.q[i] == this.q'[i]
-    public void enqueue(Object x) {
-        Objects.requireNonNull(x);
+    @Override
+    protected void enqueueImpl(Object x) {
         ensureCapacity(n + 1);
         a[(l + n) % a.length] = x;
-        n++;
     }
 
     // Pred: x != null
@@ -46,10 +31,8 @@ public class ArrayQueue {
         n++;
     }
 
-    // Pred: this.n > 0
-    // Post: R == this.q'[1] && Immutability(this)
-    public Object element() {
-        assert n > 0;
+    @Override
+    protected Object elementImpl() {
         return a[l];
     }
 
@@ -60,15 +43,11 @@ public class ArrayQueue {
         return a[(l + n - 1) % a.length];
     }
 
-    // Pred: this.n > 0
-    // Post: R == this.q'[1] && this.n == this.n' - 1
-    //       && forall i = 2, ..., this.n' : this.q[i - 1] == this.q'[i]
-    public Object dequeue() {
-        assert n > 0;
+    @Override
+    protected Object dequeueImpl() {
         Object tmp = a[l];
         a[l] = null;
         l = (l + 1) % a.length;
-        n--;
         return tmp;
     }
 
@@ -102,21 +81,8 @@ public class ArrayQueue {
         return str.append(']').toString();
     }
 
-    // Pred: true
-    // Post: R == this.n' && Immutability(this)
-    public int size() {
-        return n;
-    }
-
-    // Pred: true
-    // Post: R == (this.n' == 0) && Immutability(this)
-    public boolean isEmpty() {
-        return n == 0;
-    }
-
-    // Pred: true
-    // Post: this.n == 0
-    public void clear() {
+    @Override
+    protected void clearImpl() {
         if (l + n - 1 < a.length) {
             Arrays.fill(a, l, l + n, null);
         } else {
@@ -124,7 +90,6 @@ public class ArrayQueue {
             Arrays.fill(a, 0, l + n - a.length, null);
         }
         l = 0;
-        n = 0;
     }
 
     private void ensureCapacity(int capacity) {
