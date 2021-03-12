@@ -52,6 +52,7 @@ public abstract class AbstractQueue implements Queue {
     @Override
     public Queue removeNth(int k) {
         assert k > 0;
+        // :NOTE: два прохода + можно вынести больше общего кода
         Queue tmp = getNth(k);
         dropNth(k);
         return tmp;
