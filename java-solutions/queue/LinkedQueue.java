@@ -2,11 +2,11 @@ package queue;
 
 public class LinkedQueue extends AbstractQueue {
     private static class Node {
-        private final Object x;
+        private Object value;
         private Node right;
 
-        Node(Object x) {
-            this.x = x;
+        Node(Object value) {
+            this.value = value;
             this.right = null;
         }
     }
@@ -34,29 +34,52 @@ public class LinkedQueue extends AbstractQueue {
 
     @Override
     protected Object elementImpl() {
-        return head.x;
+        return head.value;
     }
 
     @Override
-    protected Object dequeueImpl() {
-        Object res = head.x;
-        deleteHead();
-        return res;
-    }
-
-    @Override
-    protected void clearImpl() {
-        while (head != null) {
-            deleteHead();
+    protected Queue getNthImpl(int k) {
+        LinkedQueue tmp = new LinkedQueue();
+        Node cur = head;
+        for (int i = 0; i < n; i++) {
+            if (i % k == k - 1) {
+                tmp.enqueue(cur.value);
+            }
+            cur = cur.right;
         }
+        return tmp;
     }
 
-    private void deleteHead() {
+    @Override
+    protected void dropNthImpl(int k) {
+        Node cur = head;
+        int cnt = 0;
+        for (int i = 0; i < n; i++) {
+            if (i % k == k - 2) {
+                if (cur.right != null) {
+                    cur.right = cur.right.right;
+                    cnt++;
+                    i++;
+                }
+                if (cur.right == null) {
+                    tail = cur;
+                    break;
+                }
+            }
+            cur = cur.right;
+        }
+        n -= cnt;
+    }
+
+    @Override
+    protected void deleteHead() {
         Node tmp = head.right;
+        head.value = null;
         head.right = null;
         head = tmp;
         if (head == null) {
             tail = null;
         }
+        n--;
     }
 }

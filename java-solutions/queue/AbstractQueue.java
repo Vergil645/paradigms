@@ -21,8 +21,9 @@ public abstract class AbstractQueue implements Queue {
     @Override
     public Object dequeue() {
         assert n > 0;
-        n--;
-        return dequeueImpl();
+        Object tmp = elementImpl();
+        deleteHead();
+        return tmp;
     }
 
     @Override
@@ -37,15 +38,42 @@ public abstract class AbstractQueue implements Queue {
 
     @Override
     public void clear() {
-        clearImpl();
-        n = 0;
+        while (n > 0) {
+            deleteHead();
+        }
+    }
+
+    @Override
+    public Queue getNth(int k) {
+        assert k > 0;
+        return getNthImpl(k);
+    }
+
+    @Override
+    public Queue removeNth(int k) {
+        assert k > 0;
+        Queue tmp = getNth(k);
+        dropNth(k);
+        return tmp;
+    }
+
+    @Override
+    public void dropNth(int k) {
+        assert k > 0;
+        if (k == 1) {
+            clear();
+        } else {
+            dropNthImpl(k);
+        }
     }
 
     protected abstract void enqueueImpl(Object x);
 
     protected abstract Object elementImpl();
 
-    protected abstract Object dequeueImpl();
+    protected abstract void deleteHead();
 
-    protected abstract void clearImpl();
+    protected abstract Queue getNthImpl(int k);
+
+    protected abstract void dropNthImpl(int k);
 }

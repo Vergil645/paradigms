@@ -36,19 +36,35 @@ public class ArrayQueue extends AbstractQueue {
         return a[l];
     }
 
+    @Override
+    protected Queue getNthImpl(int k) {
+        ArrayQueue tmp = new ArrayQueue();
+        for (int i = l + k - 1; i < l + n; i += k) {
+            tmp.enqueue(a[i % a.length]);
+        }
+        return tmp;
+    }
+
+    @Override
+    protected void dropNthImpl(int k) {
+        int cnt = 0;
+        for (int i = l + k - 1; cnt < n / k;) {
+            cnt++;
+            int cyc = Math.min(k, l + n - cnt - i);
+            for (int j = 0; j < cyc; i++, j++) {
+                a[i % a.length] = a[(i + cnt) % a.length];
+                a[(i + cnt) % a.length] = null;
+            }
+            i--;
+        }
+        n = n - cnt;
+    }
+
     // Pred: this.n > 0
     // Post: R == this.q'[this.n'] && Immutability(this)
     public Object peek() {
         assert n > 0;
         return a[(l + n - 1) % a.length];
-    }
-
-    @Override
-    protected Object dequeueImpl() {
-        Object tmp = a[l];
-        a[l] = null;
-        l = (l + 1) % a.length;
-        return tmp;
     }
 
     // Pred: this.n > 0
@@ -82,14 +98,10 @@ public class ArrayQueue extends AbstractQueue {
     }
 
     @Override
-    protected void clearImpl() {
-        if (l + n - 1 < a.length) {
-            Arrays.fill(a, l, l + n, null);
-        } else {
-            Arrays.fill(a, l, a.length, null);
-            Arrays.fill(a, 0, l + n - a.length, null);
-        }
-        l = 0;
+    protected void deleteHead() {
+        a[l] = null;
+        l = (l + 1) % a.length;
+        n--;
     }
 
     private void ensureCapacity(int capacity) {

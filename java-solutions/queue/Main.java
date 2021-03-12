@@ -103,10 +103,16 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        showArrayQueueModule();
-
-        showArrayQueueADT();
-
-        showArrayQueue();
+        ArrayQueue q = new ArrayQueue();
+        for (int i = 1; i <= 10; i++) {
+            q.enqueue(i);
+        }
+        q.dropNth(2);
+        System.out.println(q.toStr());
+//        showArrayQueueModule();
+//
+//        showArrayQueueADT();
+//
+//        showArrayQueue();
     }
 }
