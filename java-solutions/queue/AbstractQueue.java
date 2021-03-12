@@ -60,10 +60,13 @@ public abstract class AbstractQueue implements Queue {
     @Override
     public void dropNth(int k) {
         assert k > 0;
-        if (k == 1) {
-            clear();
-        } else {
-            dropNthImpl(k);
+        int lastN = n;
+        for (int i = 0; i < lastN; i++) {
+            if (i % k == k - 1) {
+                deleteHead();
+            } else {
+                enqueue(dequeue());
+            }
         }
     }
 
@@ -74,6 +77,4 @@ public abstract class AbstractQueue implements Queue {
     protected abstract void deleteHead();
 
     protected abstract Queue getNthImpl(int k);
-
-    protected abstract void dropNthImpl(int k);
 }

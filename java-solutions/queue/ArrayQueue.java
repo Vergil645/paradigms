@@ -44,21 +44,6 @@ public class ArrayQueue extends AbstractQueue {
         return tmp;
     }
 
-    @Override
-    protected void dropNthImpl(int k) {
-        int cnt = 0;
-        for (int i = l + k - 1; cnt < n / k;) {
-            cnt++;
-            int cyc = Math.min(k, l + n - cnt - i);
-            for (int j = 0; j < cyc; i++, j++) {
-                a[i % a.length] = a[(i + cnt) % a.length];
-                a[(i + cnt) % a.length] = null;
-            }
-            i--;
-        }
-        n = n - cnt;
-    }
-
     // Pred: this.n > 0
     // Post: R == this.q'[this.n'] && Immutability(this)
     public Object peek() {

@@ -51,27 +51,6 @@ public class LinkedQueue extends AbstractQueue {
     }
 
     @Override
-    protected void dropNthImpl(int k) {
-        Node cur = head;
-        int cnt = 0;
-        for (int i = 0; i < n; i++) {
-            if (i % k == k - 2) {
-                if (cur.right != null) {
-                    cur.right = cur.right.right;
-                    cnt++;
-                    i++;
-                }
-                if (cur.right == null) {
-                    tail = cur;
-                    break;
-                }
-            }
-            cur = cur.right;
-        }
-        n -= cnt;
-    }
-
-    @Override
     protected void deleteHead() {
         Node tmp = head.right;
         head.value = null;
