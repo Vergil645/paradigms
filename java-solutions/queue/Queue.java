@@ -36,12 +36,12 @@ public interface Queue {
     void clear();
 
     // Pred: k > 0
-    // Post: R == [ q'_i : 1 <= i <= n' && i mod k == 0 ]
+    // Post: R == (Queue) [ q'_i : 1 <= i <= n' && i mod k == 0 ]
     //       && Immutability
     Queue getNth(int k);
 
     // Pred: k > 0
-    // Post: R == [ q'_i : 1 <= i <= n' && i mod k == 0 ]
+    // Post: R == (Queue) [ q'_i : 1 <= i <= n' && i mod k == 0 ]
     //       && n == n' / k && q == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
     Queue removeNth(int k);
 
