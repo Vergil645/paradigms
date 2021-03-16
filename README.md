@@ -1,10 +1,10 @@
 Этот репозиторий будет склонирован для каждого студента и доступен по адресу
-`https://www.kgeorgiy.info/git-students/year2020/<USER>/paradigms-2021-solutions`,
+`https://www.kgeorgiy.info/git-students/year2020/<USER>/paradigms`,
 где `<USER>` — имя пользователя в PCMS (пароль так же используется из PCMS).
 
 Для сдачи домашних заданий
  * Клонируйте ваш личный репозиторий
-    * `git clone https://www.kgeorgiy.info/git-students/year2020/<USER>/paradigms-2021-solutions`
+    * `git clone https://www.kgeorgiy.info/git-students/year2020/<USER>/paradigms`
     * У личных репозиториев __нет__ web-интерфейса, используйте инструменты командной строки.
  * Добавьте ссылку на исходный репозиторий
     * `git remote add source https://www.kgeorgiy.info/git/geo/paradigms-2021-solutions`
