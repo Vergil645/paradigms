@@ -1,7 +1,7 @@
 package queue;
 
 // Model:
-// [q_1, q_2, ..., q_n]
+// [ q_1, q_2, ..., q_n ]
 // n -- capacity of queue
 
 // Inv:
@@ -42,10 +42,10 @@ public interface Queue {
 
     // Pred: k > 0
     // Post: R == (Queue) [ q'_i : 1 <= i <= n' && i mod k == 0 ]
-    //       && n == n' / k && q == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
+    //       && n == n' / k && [ q_1, q_2, ..., q_n ] == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
     Queue removeNth(int k);
 
     // Pred: k > 0
-    // Post: n == n' / k && q == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
+    // Post: n == n' / k && [ q_1, q_2, ..., q_n ] == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
     void dropNth(int k);
 }

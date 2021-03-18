@@ -35,15 +35,6 @@ public class ArrayQueue extends AbstractQueue {
         return a[l];
     }
 
-    @Override
-    protected Queue getNthImpl(int k) {
-        ArrayQueue tmp = new ArrayQueue();
-        for (int i = l + k - 1; i < l + n; i += k) {
-            tmp.enqueue(a[i % a.length]);
-        }
-        return tmp;
-    }
-
     // Pred: this.n > 0
     // Post: R == this.q'[this.n'] && Immutability(this)
     public Object peek() {
@@ -86,6 +77,11 @@ public class ArrayQueue extends AbstractQueue {
         a[l] = null;
         l = (l + 1) % a.length;
         n--;
+    }
+
+    @Override
+    protected Queue getInstance() {
+        return new ArrayQueue();
     }
 
     private void ensureCapacity(int capacity) {

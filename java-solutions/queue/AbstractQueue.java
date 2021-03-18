@@ -46,28 +46,38 @@ public abstract class AbstractQueue implements Queue {
     @Override
     public Queue getNth(int k) {
         assert k > 0;
-        return getNthImpl(k);
+        Queue tmp = getInstance();
+        findNth(k, false, tmp);
+        return tmp;
     }
 
     @Override
     public Queue removeNth(int k) {
         assert k > 0;
-        // :NOTE: два прохода + можно вынести больше общего кода
-        Queue tmp = getNth(k);
-        dropNth(k);
+        Queue tmp = getInstance();
+        findNth(k, true, tmp);
         return tmp;
     }
 
     @Override
     public void dropNth(int k) {
         assert k > 0;
+        findNth(k, true, null);
+    }
+
+    private void findNth(int k, boolean removable, Queue dst) {
         int lastN = n;
-        for (int i = 0; i < lastN; i++) {
-            if (i % k == k - 1) {
-                deleteHead();
-            } else {
-                enqueue(dequeue());
+        for (int i = 1; i <= lastN; i++) {
+            if (i % k == 0) {
+                if (dst != null) {
+                    dst.enqueue(element());
+                }
+                if (removable) {
+                    deleteHead();
+                    continue;
+                }
             }
+            enqueue(dequeue());
         }
     }
 
@@ -77,5 +87,5 @@ public abstract class AbstractQueue implements Queue {
 
     protected abstract void deleteHead();
 
-    protected abstract Queue getNthImpl(int k);
+    protected abstract Queue getInstance();
 }

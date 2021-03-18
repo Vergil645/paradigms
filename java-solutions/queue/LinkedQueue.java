@@ -38,19 +38,6 @@ public class LinkedQueue extends AbstractQueue {
     }
 
     @Override
-    protected Queue getNthImpl(int k) {
-        LinkedQueue tmp = new LinkedQueue();
-        Node cur = head;
-        for (int i = 0; i < n; i++) {
-            if (i % k == k - 1) {
-                tmp.enqueue(cur.value);
-            }
-            cur = cur.right;
-        }
-        return tmp;
-    }
-
-    @Override
     protected void deleteHead() {
         Node tmp = head.right;
         head.value = null;
@@ -60,5 +47,10 @@ public class LinkedQueue extends AbstractQueue {
             tail = null;
         }
         n--;
+    }
+
+    @Override
+    protected Queue getInstance() {
+        return new LinkedQueue();
     }
 }
