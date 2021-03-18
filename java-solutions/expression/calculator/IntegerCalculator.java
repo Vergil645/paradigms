@@ -1,7 +1,7 @@
 package expression.calculator;
 
 import expression.Const;
-import expression.CommonExpression;
+import expression.TripleExpression;
 import expression.exceptions.*;
 
 public class IntegerCalculator implements Calculator<Integer> {
@@ -69,7 +69,7 @@ public class IntegerCalculator implements Calculator<Integer> {
     }
 
     @Override
-    public CommonExpression<Integer> parseConst(String str) throws ConstantFormatException {
+    public TripleExpression<Integer> parseConst(String str) throws ConstantFormatException {
         try {
             return new Const<>(Integer.parseInt(str));
         } catch (NumberFormatException e) {

@@ -8,7 +8,7 @@ import expression.exceptions.IllegalSymbolException;
 import expression.exceptions.ParseException;
 
 public class ExpressionParser {
-    public static <T> CommonExpression<T> parse(String expression, Calculator<T> calc) throws ParseException {
+    public static <T> TripleExpression<T> parse(String expression, Calculator<T> calc) throws ParseException {
         return new InnerParser<>(expression, calc).parse();
     }
 
@@ -22,16 +22,16 @@ public class ExpressionParser {
             this.calc = calc;
         }
 
-        private CommonExpression<T> parse() throws ParseException {
-            CommonExpression<T> res = parseAdditiveGroup();
+        private TripleExpression<T> parse() throws ParseException {
+            TripleExpression<T> res = parseAdditiveGroup();
             if (!eof()) {
                 throw new IllegalSymbolException(makeExceptionMessage("binary operation"));
             }
             return res;
         }
 
-        private CommonExpression<T> parseAdditiveGroup() throws ParseException {
-            CommonExpression<T> exp = parseMultiplicativeGroup();
+        private TripleExpression<T> parseAdditiveGroup() throws ParseException {
+            TripleExpression<T> exp = parseMultiplicativeGroup();
             while (true) {
                 if (test('+')) {
                     exp = new Add<>(exp, parseMultiplicativeGroup());
@@ -43,8 +43,8 @@ public class ExpressionParser {
             }
         }
 
-        private CommonExpression<T> parseMultiplicativeGroup() throws ParseException {
-            CommonExpression<T> exp = parseElement();
+        private TripleExpression<T> parseMultiplicativeGroup() throws ParseException {
+            TripleExpression<T> exp = parseElement();
             while (true) {
                 if (test('*')) {
                     exp = new Multiply<>(exp, parseElement());
@@ -56,9 +56,9 @@ public class ExpressionParser {
             }
         }
 
-        private CommonExpression<T> parseElement() throws ParseException {
+        private TripleExpression<T> parseElement() throws ParseException {
             skipWhitespace();
-            CommonExpression<T> res;
+            TripleExpression<T> res;
             if (test('-')) {
                 res = calc.isValidSymbol(getChar()) ? parseConst( "-") : new Negate<>(parseElement());
             } else if (test('(')) {
@@ -80,7 +80,7 @@ public class ExpressionParser {
             return res;
         }
 
-        private CommonExpression<T> parseConst(String sign) throws ConstantFormatException {
+        private TripleExpression<T> parseConst(String sign) throws ConstantFormatException {
             StringBuilder sb = new StringBuilder(sign);
             while (calc.isValidSymbol(getChar())) {
                 sb.append(nextChar());
@@ -94,7 +94,7 @@ public class ExpressionParser {
             }
         }
 
-        private CommonExpression<T> parseVariable() {
+        private TripleExpression<T> parseVariable() {
             for (int len = variables.maxVarLength; len > 0; len--) {
                 String sub = substring(len);
                 if (variables.NAMES.containsKey(sub) && testId(sub)) {

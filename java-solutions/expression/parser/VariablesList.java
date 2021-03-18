@@ -1,6 +1,6 @@
 package expression.parser;
 
-import expression.CommonExpression;
+import expression.TripleExpression;
 import expression.Variable;
 
 import java.util.AbstractMap;
@@ -17,7 +17,7 @@ public class VariablesList<T> {
         maxVarLength = max;
     }
 
-    public final Map<String, CommonExpression<T>> NAMES = Map.ofEntries(
+    public final Map<String, TripleExpression<T>> NAMES = Map.ofEntries(
             new AbstractMap.SimpleEntry<>("x", new Variable<>("x")),
             new AbstractMap.SimpleEntry<>("y", new Variable<>("y")),
             new AbstractMap.SimpleEntry<>("z", new Variable<>("z"))

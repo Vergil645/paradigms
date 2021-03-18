@@ -1,6 +1,6 @@
 package expression.calculator;
 
-import expression.CommonExpression;
+import expression.TripleExpression;
 import expression.exceptions.ConstantFormatException;
 
 public interface Calculator<T> {
@@ -18,5 +18,5 @@ public interface Calculator<T> {
 
     boolean isValidSymbol(char elem);
 
-    CommonExpression<T> parseConst(String str) throws ConstantFormatException;
+    TripleExpression<T> parseConst(String str) throws ConstantFormatException;
 }
