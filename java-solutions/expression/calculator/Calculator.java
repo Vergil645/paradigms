@@ -1,28 +1,25 @@
 package expression.calculator;
 
-import expression.CommonExpression;
-import expression.exceptions.ConstantFormatException;
-
 public interface Calculator<T> {
-    T valueOf(int x);
+    T valueOf(int arg);
 
-    T add(T x, T y);
+    T valueOf(String str) throws IllegalArgumentException;
 
-    T subtract(T x, T y);
+    T add(T arg1, T arg2);
 
-    T multiply(T x, T y);
+    T subtract(T arg1, T arg2);
 
-    T divide(T x, T y);
+    T multiply(T arg1, T arg2);
 
-    T negate(T x);
+    T divide(T arg1, T arg2);
 
-    T abs(T x);
+    T negate(T arg);
 
-    T square(T x);
+    T abs(T arg);
 
-    T mod (T x, T y);
+    T square(T arg);
 
-    boolean isValidSymbol(char elem);
+    T mod (T arg1, T arg2);
 
-    CommonExpression<T> parseConst(String str) throws ConstantFormatException;
+    boolean isValidSymbol(char symbol);
 }

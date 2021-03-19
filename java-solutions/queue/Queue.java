@@ -36,16 +36,18 @@ public interface Queue {
     void clear();
 
     // Pred: k > 0
-    // Post: R == (Queue) [ q'_i : 1 <= i <= n' && i mod k == 0 ]
+    // Post: R.getClass() == this.getClass() && R.n == n' / k
+    //       && forall i = 1, ..., R.n : R.q[i] == q'[k * i]
     //       && Immutability
     Queue getNth(int k);
 
     // Pred: k > 0
-    // Post: R == (Queue) [ q'_i : 1 <= i <= n' && i mod k == 0 ]
-    //       && n == n' / k && [ q_1, q_2, ..., q_n ] == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
+    // Post: R.getClass() == this.getClass() && R.n == n' / k
+    //       && forall i = 1, ..., R.n : R.q[i] == q'[k * i]
+    //       && n == n' / k && forall i = 1, ..., n : q[i] == q'[i + (i - 1) / (k - 1)]
     Queue removeNth(int k);
 
     // Pred: k > 0
-    // Post: n == n' / k && [ q_1, q_2, ..., q_n ] == [ q'_i : 1 <= i <= n' && i mod k != 0 ]
+    // Post: n == n' / k && forall i = 1, ..., n : q[i] == q'[i + (i - 1) / (k - 1)]
     void dropNth(int k);
 }

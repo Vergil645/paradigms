@@ -1,66 +1,58 @@
 package expression.calculator;
 
-import expression.Const;
-import expression.CommonExpression;
-import expression.exceptions.ConstantFormatException;
-
-public class ByteCalculator implements Calculator<Byte> {
+public class ByteCalculator extends AbstractCalculator<Byte> {
     @Override
-    public Byte valueOf(int x) {
-        return (byte) x;
+    public Byte valueOf(int arg) {
+        return (byte) arg;
     }
 
     @Override
-    public Byte add(Byte x, Byte y) {
-        return (byte) (x + y);
+    protected Byte parse(String str) {
+        return Byte.parseByte(str);
     }
 
     @Override
-    public Byte subtract(Byte x, Byte y) {
-        return (byte) (x - y);
+    public Byte add(Byte arg1, Byte arg2) {
+        return (byte) (arg1 + arg2);
     }
 
     @Override
-    public Byte multiply(Byte x, Byte y) {
-        return (byte) (x * y);
+    public Byte subtract(Byte arg1, Byte arg2) {
+        return (byte) (arg1 - arg2);
     }
 
     @Override
-    public Byte divide(Byte x, Byte y) {
-        return (byte) (x / y);
+    public Byte multiply(Byte arg1, Byte arg2) {
+        return (byte) (arg1 * arg2);
     }
 
     @Override
-    public Byte negate(Byte x) {
-        return (byte) (-x);
+    public Byte divide(Byte arg1, Byte arg2) {
+        return (byte) (arg1 / arg2);
     }
 
     @Override
-    public Byte abs(Byte x) {
-        return x >= 0 ? x : negate(x);
+    public Byte negate(Byte arg) {
+        return (byte) (-arg);
     }
 
     @Override
-    public Byte square(Byte x) {
-        return (byte) (x * x);
+    public Byte abs(Byte arg) {
+        return arg >= 0 ? arg : negate(arg);
     }
 
     @Override
-    public Byte mod(Byte x, Byte y) {
-        return (byte) (x % y);
+    public Byte square(Byte arg) {
+        return (byte) (arg * arg);
     }
 
     @Override
-    public boolean isValidSymbol(char elem) {
-        return '0' <= elem && elem <= '9';
+    public Byte mod(Byte arg1, Byte arg2) {
+        return (byte) (arg1 % arg2);
     }
 
     @Override
-    public CommonExpression<Byte> parseConst(String str) throws ConstantFormatException {
-        try {
-            return new Const<>(Byte.parseByte(str));
-        } catch (NumberFormatException e) {
-            throw new ConstantFormatException("Invalid constant: " + str);
-        }
+    public boolean isValidSymbol(char symbol) {
+        return '0' <= symbol && symbol <= '9';
     }
 }

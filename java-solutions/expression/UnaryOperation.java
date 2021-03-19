@@ -3,18 +3,20 @@ package expression;
 import expression.calculator.Calculator;
 
 public abstract class UnaryOperation<T> implements CommonExpression<T> {
+    protected final Calculator<T> calc;
     protected final CommonExpression<T> arg;
 
-    protected UnaryOperation(CommonExpression<T> arg) {
+    protected UnaryOperation(Calculator<T> calc, CommonExpression<T> arg) {
+        this.calc = calc;
         this.arg = arg;
     }
 
     @Override
-    public T evaluate(Calculator<T> calc, int x, int y, int z) {
-        return calculate(calc, arg.evaluate(calc, x, y, z));
+    public T evaluate(int x, int y, int z) {
+        return calculate(arg.evaluate(x, y, z));
     }
 
-    protected T calculate(Calculator<T> calc, T x) {
+    protected T calculate(T x) {
         throw new UnsupportedOperationException();
     }
 }

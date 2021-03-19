@@ -3,7 +3,7 @@ package expression.generic;
 import expression.calculator.*;
 import java.util.Map;
 
-public class ModeList {
+public class ModesList {
     public static final Map<String, Calculator<?>> CALCULATORS = Map.ofEntries(
             Map.entry("i", new IntegerCalculator()),
             Map.entry("d", new DoubleCalculator()),

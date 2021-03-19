@@ -1,11 +1,8 @@
 package expression.parser;
 
 import expression.*;
+import expression.exceptions.*;
 import expression.calculator.Calculator;
-import expression.exceptions.BracketsBalanceException;
-import expression.exceptions.ConstantFormatException;
-import expression.exceptions.IllegalSymbolException;
-import expression.exceptions.ParseException;
 
 public class ExpressionParser {
     public static <T> CommonExpression<T> parse(String expression, Calculator<T> calc) throws ParseException {
@@ -13,12 +10,10 @@ public class ExpressionParser {
     }
 
     private static class InnerParser<T> extends BaseParser {
-        private final VariablesList<T> variables;
         private final Calculator<T> calc;
 
         public InnerParser(String data, Calculator<T> calc) {
             super(new StringSource(data));
-            this.variables = new VariablesList<>();
             this.calc = calc;
         }
 
@@ -34,9 +29,9 @@ public class ExpressionParser {
             CommonExpression<T> exp = parseMultiplicativeGroup();
             while (true) {
                 if (test('+')) {
-                    exp = new Add<>(exp, parseMultiplicativeGroup());
+                    exp = new Add<>(calc, exp, parseMultiplicativeGroup());
                 } else if (test('-')) {
-                    exp = new Subtract<>(exp, parseMultiplicativeGroup());
+                    exp = new Subtract<>(calc, exp, parseMultiplicativeGroup());
                 } else {
                     return exp;
                 }
@@ -47,11 +42,11 @@ public class ExpressionParser {
             CommonExpression<T> exp = parseElement();
             while (true) {
                 if (test('*')) {
-                    exp = new Multiply<>(exp, parseElement());
+                    exp = new Multiply<>(calc, exp, parseElement());
                 } else if (test('/')) {
-                    exp = new Divide<>(exp, parseElement());
+                    exp = new Divide<>(calc, exp, parseElement());
                 } else if (testId("mod")) {
-                    exp = new Mod<>(exp, parseElement());
+                    exp = new Mod<>(calc, exp, parseElement());
                 } else {
                     return exp;
                 }
@@ -62,11 +57,11 @@ public class ExpressionParser {
             skipWhitespace();
             CommonExpression<T> res;
             if (test('-')) {
-                res = calc.isValidSymbol(getChar()) ? parseConst( "-") : new Negate<>(parseElement());
+                res = calc.isValidSymbol(getChar()) ? parseConst( "-") : new Negate<>(calc, parseElement());
             } else if (testId("abs")) {
-                res = new Abs<>(parseElement());
+                res = new Abs<>(calc, parseElement());
             } else if (testId("square")) {
-                res = new Square<>(parseElement());
+                res = new Square<>(calc, parseElement());
             } else if (test('(')) {
                 res = parseAdditiveGroup();
                 if (!test(')')) {
@@ -92,8 +87,8 @@ public class ExpressionParser {
                 sb.append(nextChar());
             }
             try {
-                return calc.parseConst(sb.toString());
-            } catch (ConstantFormatException e) {
+                return new Const<>(calc.valueOf(sb.toString()));
+            } catch (IllegalArgumentException e) {
                 throw new ConstantFormatException(String.format(
                         "Invalid constant on positions %d - %d: %s", getPos() - sb.length() + 1, getPos(), sb
                 ));
@@ -101,10 +96,10 @@ public class ExpressionParser {
         }
 
         private CommonExpression<T> parseVariable() {
-            for (int len = variables.maxVarLength; len > 0; len--) {
+            for (int len = VariablesList.maxVarLength; len > 0; len--) {
                 String sub = substring(len);
-                if (variables.NAMES.containsKey(sub) && testId(sub)) {
-                    return variables.NAMES.get(sub);
+                if (VariablesList.NAMES.contains(sub) && testId(sub)) {
+                    return new Variable<>(calc, sub);
                 }
             }
             return null;

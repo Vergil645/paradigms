@@ -13,50 +13,50 @@ public class ModIntegerCalculator extends UncheckedIntegerCalculator {
     }
 
     @Override
-    public Integer valueOf(int x) {
-        return (x % p + p) % p;
+    public Integer valueOf(int arg) {
+        return (arg % p + p) % p;
     }
 
     @Override
-    public Integer add(Integer x, Integer y) {
-        return (valueOf(x) + valueOf(y)) % p;
+    public Integer add(Integer arg1, Integer arg2) {
+        return (valueOf(arg1) + valueOf(arg2)) % p;
     }
 
     @Override
-    public Integer subtract(Integer x, Integer y) {
-        return (valueOf(x) - valueOf(y) + p) % p;
+    public Integer subtract(Integer arg1, Integer arg2) {
+        return (valueOf(arg1) - valueOf(arg2) + p) % p;
     }
 
     @Override
-    public Integer multiply(Integer x, Integer y) {
-        return (valueOf(x) * valueOf(y)) % p;
+    public Integer multiply(Integer arg1, Integer arg2) {
+        return (valueOf(arg1) * valueOf(arg2)) % p;
     }
 
     @Override
-    public Integer divide(Integer x, Integer y) {
-        if (y == 0) {
-            throw new DivisionByZeroException(String.format("Division by zero: %d / %d", x, y));
+    public Integer divide(Integer arg1, Integer arg2) {
+        if (arg2 == 0) {
+            throw new DivisionByZeroException(String.format("Division by zero: %d / %d", arg1, arg2));
         }
-        return (valueOf(x) * rev[valueOf(y)]) % p;
+        return (valueOf(arg1) * rev[valueOf(arg2)]) % p;
     }
 
     @Override
-    public Integer negate(Integer x) {
-        return (-valueOf(x) + p) % p;
+    public Integer negate(Integer arg) {
+        return (-valueOf(arg) + p) % p;
     }
 
     @Override
-    public Integer abs(Integer x) {
-        return valueOf(x);
+    public Integer abs(Integer arg) {
+        return valueOf(arg);
     }
 
     @Override
-    public Integer square(Integer x) {
-        return (x * x) % p;
+    public Integer square(Integer arg) {
+        return (arg * arg) % p;
     }
 
     @Override
-    public Integer mod(Integer x, Integer y) {
-        return (x % y) % p;
+    public Integer mod(Integer arg1, Integer arg2) {
+        return (arg1 % arg2) % p;
     }
 }

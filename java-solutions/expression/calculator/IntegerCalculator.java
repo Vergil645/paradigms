@@ -4,82 +4,72 @@ import expression.exceptions.*;
 
 public class IntegerCalculator extends UncheckedIntegerCalculator {
     @Override
-    public Integer valueOf(int x) {
-        return x;
+    public Integer add(Integer arg1, Integer arg2) {
+        if (arg2 > 0 && arg1 > Integer.MAX_VALUE - arg2){
+            throw new OverflowException(String.format("Overflow: %d + %d is greater than Integer.MAX_VALUE", arg1, arg2));
+        } else if (arg2 < 0 && arg1 < Integer.MIN_VALUE - arg2) {
+            throw new OverflowException(String.format("Overflow: %d + %d is less than Integer.MIN_VALUE", arg1, arg2));
+        }
+        return arg1 + arg2;
     }
 
     @Override
-    public Integer add(Integer x, Integer y) {
-        if (y > 0 && x > Integer.MAX_VALUE - y){
-            throw new OverflowException(String.format("Overflow: %d + %d is greater than Integer.MAX_VALUE", x, y));
-        } else if (y < 0 && x < Integer.MIN_VALUE - y) {
-            throw new OverflowException(String.format("Overflow: %d + %d is less than Integer.MIN_VALUE", x, y));
+    public Integer subtract(Integer arg1, Integer arg2) {
+        if (arg2 < 0 && arg1 > Integer.MAX_VALUE + arg2){
+            throw new OverflowException(String.format("Overflow: %d - %d is greater than Integer.MAX_VALUE", arg1, arg2));
+        } else if (arg2 > 0 && arg1 < Integer.MIN_VALUE + arg2){
+            throw new OverflowException(String.format("Overflow: %d - %d is less than Integer.MIN_VALUE", arg1, arg2));
         }
-        return x + y;
+        return arg1 - arg2;
     }
 
     @Override
-    public Integer subtract(Integer x, Integer y) {
-        if (y < 0 && x > Integer.MAX_VALUE + y){
-            throw new OverflowException(String.format("Overflow: %d - %d is greater than Integer.MAX_VALUE", x, y));
-        } else if (y > 0 && x < Integer.MIN_VALUE + y){
-            throw new OverflowException(String.format("Overflow: %d - %d is less than Integer.MIN_VALUE", x, y));
+    public Integer multiply(Integer arg1, Integer arg2) {
+        if (arg1 > arg2) {
+            int tmp = arg2;
+            arg2 = arg1;
+            arg1 = tmp;
         }
-        return x - y;
+        if ((arg2 > 0 && arg1 > Integer.MAX_VALUE / arg2) || (arg2 < 0 && arg1 < Integer.MAX_VALUE / arg2)) {
+            throw new OverflowException(String.format("Overflow: %d * %d is greater than Integer.MAX_VALUE", arg1, arg2));
+        } else if ((arg2 > 0 && arg1 < Integer.MIN_VALUE / arg2) || (arg2 < 0 && -arg1 < Integer.MIN_VALUE / (-arg2))) {
+            throw new OverflowException(String.format("Overflow: %d * %d is less than Integer.MIN_VALUE", arg1, arg2));
+        }
+        return arg1 * arg2;
     }
 
     @Override
-    public Integer multiply(Integer x, Integer y) {
-        if (x > y) {
-            int tmp = y;
-            y = x;
-            x = tmp;
+    public Integer divide(Integer arg1, Integer arg2) {
+        if (arg2 == 0) {
+            throw new DivisionByZeroException(String.format("Division by zero: %d / %d", arg1, arg2));
+        } else if (arg1 == Integer.MIN_VALUE && arg2 == -1) {
+            throw new OverflowException(String.format("Overflow: %d / %d is greater than Integer.MAX_VALUE", arg1, arg2));
         }
-        if ((y > 0 && x > Integer.MAX_VALUE / y) || (y < 0 && x < Integer.MAX_VALUE / y)) {
-            throw new OverflowException(String.format("Overflow: %d * %d is greater than Integer.MAX_VALUE", x, y));
-        } else if ((y > 0 && x < Integer.MIN_VALUE / y) || (y < 0 && -x < Integer.MIN_VALUE / (-y))) {
-            throw new OverflowException(String.format("Overflow: %d * %d is less than Integer.MIN_VALUE", x, y));
-        }
-        return x * y;
+        return arg1 / arg2;
     }
 
     @Override
-    public Integer divide(Integer x, Integer y) {
-        if (y == 0) {
-            throw new DivisionByZeroException(String.format("Division by zero: %d / %d", x, y));
-        } else if (x == Integer.MIN_VALUE && y == -1) {
-            throw new OverflowException(String.format("Overflow: %d / %d is greater than Integer.MAX_VALUE", x, y));
+    public Integer negate(Integer arg) {
+        if (arg == Integer.MIN_VALUE) {
+            throw new OverflowException(String.format("Overflow: -(%d) is greater than Integer.MAX_VALUE", arg));
         }
-        return x / y;
+        return -arg;
     }
 
     @Override
-    public Integer negate(Integer x) {
-        if (x == Integer.MIN_VALUE) {
-            throw new OverflowException(String.format("Overflow: -(%d) is greater than Integer.MAX_VALUE", x));
+    public Integer abs(Integer arg) {
+        if (arg == Integer.MIN_VALUE) {
+            throw new OverflowException(String.format("Overflow: abs(%d) is greater than Integer.MAX_VALUE", arg));
         }
-        return -x;
+        return arg >= 0 ? arg : -arg;
     }
 
     @Override
-    public Integer abs(Integer x) {
-        if (x == Integer.MIN_VALUE) {
-            throw new OverflowException(String.format("Overflow: abs(%d) is greater than Integer.MAX_VALUE", x));
-        }
-        return x >= 0 ? x : -x;
-    }
-
-    @Override
-    public Integer square(Integer x) {
+    public Integer square(Integer arg) {
         try {
-            return multiply(x, x);
+            return multiply(arg, arg);
         } catch (OverflowException e) {
-            throw new OverflowException(String.format("Overflow: (%d)^2 is greater than Integer.MAX_VALUE", x));
+            throw new OverflowException(String.format("Overflow: (%d)^2 is greater than Integer.MAX_VALUE", arg));
         }
-    }
-
-    @Override
-    public Integer mod (Integer x, Integer y) {
-        return x % y;
     }
 }

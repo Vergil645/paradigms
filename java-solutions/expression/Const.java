@@ -1,7 +1,5 @@
 package expression;
 
-import expression.calculator.Calculator;
-
 public class Const<T> implements CommonExpression<T> {
     private final T value;
 
@@ -10,7 +8,7 @@ public class Const<T> implements CommonExpression<T> {
     }
 
     @Override
-    public T evaluate(Calculator<T> calc, int x, int y, int z) {
+    public T evaluate(int x, int y, int z) {
         return value;
     }
 }

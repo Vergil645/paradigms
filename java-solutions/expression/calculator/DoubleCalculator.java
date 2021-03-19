@@ -1,66 +1,58 @@
 package expression.calculator;
 
-import expression.Const;
-import expression.CommonExpression;
-import expression.exceptions.ConstantFormatException;
-
-public class DoubleCalculator implements Calculator<Double> {
+public class DoubleCalculator extends AbstractCalculator<Double> {
     @Override
-    public Double valueOf(int x) {
-        return (double) x;
+    public Double valueOf(int arg) {
+        return (double) arg;
     }
 
     @Override
-    public Double add(Double x, Double y) {
-        return x + y;
+    protected Double parse(String str) {
+        return Double.parseDouble(str);
     }
 
     @Override
-    public Double subtract(Double x, Double y) {
-        return x - y;
+    public Double add(Double arg1, Double arg2) {
+        return arg1 + arg2;
     }
 
     @Override
-    public Double multiply(Double x, Double y) {
-        return x * y;
+    public Double subtract(Double arg1, Double arg2) {
+        return arg1 - arg2;
     }
 
     @Override
-    public Double divide(Double x, Double y) {
-        return x / y;
+    public Double multiply(Double arg1, Double arg2) {
+        return arg1 * arg2;
     }
 
     @Override
-    public Double negate(Double x) {
-        return -x;
+    public Double divide(Double arg1, Double arg2) {
+        return arg1 / arg2;
     }
 
     @Override
-    public Double abs(Double x) {
-        return x >= 0 ? x : -x;
+    public Double negate(Double arg) {
+        return -arg;
     }
 
     @Override
-    public Double square(Double x) {
-        return x * x;
+    public Double abs(Double arg) {
+        return arg >= 0 ? arg : -arg;
     }
 
     @Override
-    public Double mod (Double x, Double y) {
-        return x % y;
+    public Double square(Double arg) {
+        return arg * arg;
     }
 
     @Override
-    public boolean isValidSymbol(char elem) {
-        return elem == '.' || ('0' <= elem && elem <= '9');
+    public Double mod (Double arg1, Double arg2) {
+        return arg1 % arg2;
     }
 
     @Override
-    public CommonExpression<Double> parseConst(String str) throws ConstantFormatException {
-        try {
-            return new Const<>(Double.parseDouble(str));
-        } catch (NumberFormatException e) {
-            throw new ConstantFormatException("Invalid constant: " + str);
-        }
+    public boolean isValidSymbol(char symbol) {
+        return symbol == '.' || ('0' <= symbol && symbol <= '9');
     }
 }

@@ -1,72 +1,64 @@
 package expression.calculator;
 
-import expression.Const;
-import expression.CommonExpression;
-import expression.exceptions.ConstantFormatException;
 import expression.exceptions.DivisionByZeroException;
-
 import java.math.BigInteger;
 
-public class BigIntegerCalculator implements Calculator<BigInteger> {
+public class BigIntegerCalculator extends AbstractCalculator<BigInteger> {
     @Override
-    public BigInteger valueOf(int x) {
-        return BigInteger.valueOf(x);
+    public BigInteger valueOf(int arg) {
+        return BigInteger.valueOf(arg);
     }
 
     @Override
-    public BigInteger add(BigInteger x, BigInteger y) {
-        return x.add(y);
+    protected BigInteger parse(String str) {
+        return new BigInteger(str);
     }
 
     @Override
-    public BigInteger subtract(BigInteger x, BigInteger y) {
-        return x.subtract(y);
+    public BigInteger add(BigInteger arg1, BigInteger arg2) {
+        return arg1.add(arg2);
     }
 
     @Override
-    public BigInteger multiply(BigInteger x, BigInteger y) {
-        return x.multiply(y);
+    public BigInteger subtract(BigInteger arg1, BigInteger arg2) {
+        return arg1.subtract(arg2);
     }
 
     @Override
-    public BigInteger divide(BigInteger x, BigInteger y) {
-        if (y.equals(BigInteger.ZERO)) {
-            throw new DivisionByZeroException(String.format("Division by zero: %d / %d", x, y));
+    public BigInteger multiply(BigInteger arg1, BigInteger arg2) {
+        return arg1.multiply(arg2);
+    }
+
+    @Override
+    public BigInteger divide(BigInteger arg1, BigInteger arg2) {
+        if (arg2.equals(BigInteger.ZERO)) {
+            throw new DivisionByZeroException(String.format("Division by zero: %d / %d", arg1, arg2));
         }
-        return x.divide(y);
+        return arg1.divide(arg2);
     }
 
     @Override
-    public BigInteger negate(BigInteger x) {
-        return x.negate();
+    public BigInteger negate(BigInteger arg) {
+        return arg.negate();
     }
 
     @Override
-    public BigInteger abs(BigInteger x) {
-        return x.abs();
+    public BigInteger abs(BigInteger arg) {
+        return arg.abs();
     }
 
     @Override
-    public BigInteger square(BigInteger x) {
-        return x.multiply(x);
+    public BigInteger square(BigInteger arg) {
+        return arg.multiply(arg);
     }
 
     @Override
-    public BigInteger mod (BigInteger x, BigInteger y) {
-        return x.mod(y);
+    public BigInteger mod (BigInteger arg1, BigInteger arg2) {
+        return arg1.mod(arg2);
     }
 
     @Override
-    public boolean isValidSymbol(char elem) {
-        return '0' <= elem && elem <= '9';
-    }
-
-    @Override
-    public CommonExpression<BigInteger> parseConst(String str) throws ConstantFormatException {
-        try {
-            return new Const<>(new BigInteger(str));
-        } catch (NumberFormatException e) {
-            throw new ConstantFormatException("Invalid constant: " + str);
-        }
+    public boolean isValidSymbol(char symbol) {
+        return '0' <= symbol && symbol <= '9';
     }
 }

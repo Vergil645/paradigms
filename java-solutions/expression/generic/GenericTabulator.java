@@ -34,12 +34,12 @@ public class GenericTabulator implements Tabulator {
             String mode, String expression,
             int x1, int x2, int y1, int y2, int z1, int z2
     ) throws Exception {
-        if (!ModeList.CALCULATORS.containsKey(mode)) {
+        if (!ModesList.CALCULATORS.containsKey(mode)) {
             throw new IllegalArgumentException(String.format(
-                    "Illegal mode: %s\nValid modes:\n%s", mode, ModeList.VALID_MODES
+                    "Illegal mode: %s\nValid modes:\n%s", mode, ModesList.VALID_MODES
             ));
         }
-        return tabulate(ModeList.CALCULATORS.get(mode), expression, x1, x2, y1, y2, z1, z2);
+        return tabulate(ModesList.CALCULATORS.get(mode), expression, x1, x2, y1, y2, z1, z2);
     }
 
     private <T> Object[][][] tabulate(
@@ -52,7 +52,7 @@ public class GenericTabulator implements Tabulator {
             for (int j = 0; j <= y2 - y1; j++) {
                 for (int k = 0; k <= z2 - z1; k++) {
                     try {
-                        res[i][j][k] = expr.evaluate(calc, x1 + i, y1 + j, z1 + k);
+                        res[i][j][k] = expr.evaluate(x1 + i, y1 + j, z1 + k);
                     } catch (Exception e) {
                         res[i][j][k] = null;
                     }

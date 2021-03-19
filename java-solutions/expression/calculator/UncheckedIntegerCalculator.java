@@ -1,66 +1,58 @@
 package expression.calculator;
 
-import expression.Const;
-import expression.CommonExpression;
-import expression.exceptions.ConstantFormatException;
-
-public class UncheckedIntegerCalculator implements Calculator<Integer> {
+public class UncheckedIntegerCalculator extends AbstractCalculator<Integer> {
     @Override
-    public Integer valueOf(int x) {
-        return x;
+    public Integer valueOf(int arg) {
+        return arg;
     }
 
     @Override
-    public Integer add(Integer x, Integer y) {
-        return x + y;
+    protected Integer parse(String str) {
+        return valueOf(Integer.parseInt(str));
     }
 
     @Override
-    public Integer subtract(Integer x, Integer y) {
-        return x - y;
+    public Integer add(Integer arg1, Integer arg2) {
+        return arg1 + arg2;
     }
 
     @Override
-    public Integer multiply(Integer x, Integer y) {
-        return x * y;
+    public Integer subtract(Integer arg1, Integer arg2) {
+        return arg1 - arg2;
     }
 
     @Override
-    public Integer divide(Integer x, Integer y) {
-        return x / y;
+    public Integer multiply(Integer arg1, Integer arg2) {
+        return arg1 * arg2;
     }
 
     @Override
-    public Integer negate(Integer x) {
-        return -x;
+    public Integer divide(Integer arg1, Integer arg2) {
+        return arg1 / arg2;
     }
 
     @Override
-    public Integer abs(Integer x) {
-        return x >= 0 ? x : -x;
+    public Integer negate(Integer arg) {
+        return -arg;
     }
 
     @Override
-    public Integer square(Integer x) {
-        return x * x;
+    public Integer abs(Integer arg) {
+        return arg >= 0 ? arg : -arg;
     }
 
     @Override
-    public Integer mod(Integer x, Integer y) {
-        return x % y;
+    public Integer square(Integer arg) {
+        return arg * arg;
     }
 
     @Override
-    public boolean isValidSymbol(char elem) {
-        return '0' <= elem && elem <= '9';
+    public Integer mod(Integer arg1, Integer arg2) {
+        return arg1 % arg2;
     }
 
     @Override
-    public CommonExpression<Integer> parseConst(String str) throws ConstantFormatException {
-        try {
-            return new Const<>(Integer.parseInt(str));
-        } catch (NumberFormatException e) {
-            throw new ConstantFormatException("Invalid constant: " + str);
-        }
+    public boolean isValidSymbol(char symbol) {
+        return '0' <= symbol && symbol <= '9';
     }
 }
