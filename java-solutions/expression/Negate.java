@@ -3,7 +3,7 @@ package expression;
 import expression.calculator.Calculator;
 
 public class Negate<T> extends UnaryOperation<T> {
-    public Negate(TripleExpression<T> arg) {
+    public Negate(CommonExpression<T> arg) {
         super(arg);
     }
 

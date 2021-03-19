@@ -2,7 +2,7 @@ package expression;
 
 import expression.calculator.Calculator;
 
-public class Variable<T> implements TripleExpression<T> {
+public class Variable<T> implements CommonExpression<T> {
     private final String var;
 
     public Variable(String var) {

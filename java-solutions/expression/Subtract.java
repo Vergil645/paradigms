@@ -3,7 +3,7 @@ package expression;
 import expression.calculator.Calculator;
 
 public class Subtract<T> extends BinaryOperation<T> {
-    public Subtract(TripleExpression<T> first, TripleExpression<T> second) {
+    public Subtract(CommonExpression<T> first, CommonExpression<T> second) {
         super(first, second);
     }
 

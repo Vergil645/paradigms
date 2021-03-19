@@ -3,7 +3,7 @@ package expression;
 import expression.calculator.Calculator;
 
 public class Divide<T> extends BinaryOperation<T> {
-    public Divide(TripleExpression<T> first, TripleExpression<T> second) {
+    public Divide(CommonExpression<T> first, CommonExpression<T> second) {
         super(first, second);
     }
 

@@ -1,7 +1,7 @@
 package expression.calculator;
 
 import expression.Const;
-import expression.TripleExpression;
+import expression.CommonExpression;
 import expression.exceptions.ConstantFormatException;
 import expression.exceptions.DivisionByZeroException;
 
@@ -62,7 +62,7 @@ public class BigIntegerCalculator implements Calculator<BigInteger> {
     }
 
     @Override
-    public TripleExpression<BigInteger> parseConst(String str) throws ConstantFormatException {
+    public CommonExpression<BigInteger> parseConst(String str) throws ConstantFormatException {
         try {
             return new Const<>(new BigInteger(str));
         } catch (NumberFormatException e) {

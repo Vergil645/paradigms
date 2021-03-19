@@ -1,9 +1,8 @@
 package expression.calculator;
 
 import expression.Const;
-import expression.TripleExpression;
+import expression.CommonExpression;
 import expression.exceptions.ConstantFormatException;
-import expression.exceptions.OverflowException;
 
 public class DoubleCalculator implements Calculator<Double> {
     @Override
@@ -57,7 +56,7 @@ public class DoubleCalculator implements Calculator<Double> {
     }
 
     @Override
-    public TripleExpression<Double> parseConst(String str) throws ConstantFormatException {
+    public CommonExpression<Double> parseConst(String str) throws ConstantFormatException {
         try {
             return new Const<>(Double.parseDouble(str));
         } catch (NumberFormatException e) {

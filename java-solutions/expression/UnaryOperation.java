@@ -2,10 +2,10 @@ package expression;
 
 import expression.calculator.Calculator;
 
-public abstract class UnaryOperation<T> implements TripleExpression<T> {
-    protected final TripleExpression<T> arg;
+public abstract class UnaryOperation<T> implements CommonExpression<T> {
+    protected final CommonExpression<T> arg;
 
-    protected UnaryOperation(TripleExpression<T> arg) {
+    protected UnaryOperation(CommonExpression<T> arg) {
         this.arg = arg;
     }
 

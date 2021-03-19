@@ -3,7 +3,7 @@ package expression;
 import expression.calculator.Calculator;
 
 public class Square<T> extends UnaryOperation<T> {
-    public Square(TripleExpression<T> arg) {
+    public Square(CommonExpression<T> arg) {
         super(arg);
     }
 

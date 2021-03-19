@@ -2,7 +2,7 @@ package expression;
 
 import expression.calculator.Calculator;
 
-public class Const<T> implements TripleExpression<T> {
+public class Const<T> implements CommonExpression<T> {
     private final T value;
 
     public Const(T value) {

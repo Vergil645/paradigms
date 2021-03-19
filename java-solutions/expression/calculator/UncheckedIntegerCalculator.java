@@ -1,7 +1,7 @@
 package expression.calculator;
 
 import expression.Const;
-import expression.TripleExpression;
+import expression.CommonExpression;
 import expression.exceptions.ConstantFormatException;
 
 public class UncheckedIntegerCalculator implements Calculator<Integer> {
@@ -56,7 +56,7 @@ public class UncheckedIntegerCalculator implements Calculator<Integer> {
     }
 
     @Override
-    public TripleExpression<Integer> parseConst(String str) throws ConstantFormatException {
+    public CommonExpression<Integer> parseConst(String str) throws ConstantFormatException {
         try {
             return new Const<>(Integer.parseInt(str));
         } catch (NumberFormatException e) {

@@ -3,7 +3,7 @@ package expression;
 import expression.calculator.Calculator;
 
 public class Abs<T> extends UnaryOperation<T> {
-    public Abs(TripleExpression<T> arg) {
+    public Abs(CommonExpression<T> arg) {
         super(arg);
     }
 

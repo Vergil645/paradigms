@@ -2,10 +2,10 @@ package expression;
 
 import expression.calculator.Calculator;
 
-public abstract class BinaryOperation<T> implements TripleExpression<T> {
-    protected final TripleExpression<T> first, second;
+public abstract class BinaryOperation<T> implements CommonExpression<T> {
+    protected final CommonExpression<T> first, second;
 
-    protected BinaryOperation(TripleExpression<T> first, TripleExpression<T> second) {
+    protected BinaryOperation(CommonExpression<T> first, CommonExpression<T> second) {
         this.first = first;
         this.second = second;
     }
