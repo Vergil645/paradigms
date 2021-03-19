@@ -1,10 +1,8 @@
 package expression.calculator;
 
-import expression.Const;
-import expression.TripleExpression;
 import expression.exceptions.*;
 
-public class IntegerCalculator implements Calculator<Integer> {
+public class IntegerCalculator extends UncheckedIntegerCalculator {
     @Override
     public Integer valueOf(int x) {
         return x;
@@ -64,16 +62,24 @@ public class IntegerCalculator implements Calculator<Integer> {
     }
 
     @Override
-    public boolean isValidSymbol(char elem) {
-        return '0' <= elem && elem <= '9';
+    public Integer abs(Integer x) {
+        if (x == Integer.MIN_VALUE) {
+            throw new OverflowException(String.format("Overflow: abs(%d) is greater than Integer.MAX_VALUE", x));
+        }
+        return x >= 0 ? x : -x;
     }
 
     @Override
-    public TripleExpression<Integer> parseConst(String str) throws ConstantFormatException {
+    public Integer square(Integer x) {
         try {
-            return new Const<>(Integer.parseInt(str));
-        } catch (NumberFormatException e) {
-            throw new ConstantFormatException("Invalid constant: " + str);
+            return multiply(x, x);
+        } catch (OverflowException e) {
+            throw new OverflowException(String.format("Overflow: (%d)^2 is greater than Integer.MAX_VALUE", x));
         }
+    }
+
+    @Override
+    public Integer mod (Integer x, Integer y) {
+        return x % y;
     }
 }

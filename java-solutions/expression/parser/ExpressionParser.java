@@ -50,6 +50,8 @@ public class ExpressionParser {
                     exp = new Multiply<>(exp, parseElement());
                 } else if (test('/')) {
                     exp = new Divide<>(exp, parseElement());
+                } else if (testId("mod")) {
+                    exp = new Mod<>(exp, parseElement());
                 } else {
                     return exp;
                 }
@@ -61,6 +63,10 @@ public class ExpressionParser {
             TripleExpression<T> res;
             if (test('-')) {
                 res = calc.isValidSymbol(getChar()) ? parseConst( "-") : new Negate<>(parseElement());
+            } else if (testId("abs")) {
+                res = new Abs<>(parseElement());
+            } else if (testId("square")) {
+                res = new Square<>(parseElement());
             } else if (test('(')) {
                 res = parseAdditiveGroup();
                 if (!test(')')) {

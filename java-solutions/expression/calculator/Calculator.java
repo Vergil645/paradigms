@@ -16,6 +16,12 @@ public interface Calculator<T> {
 
     T negate(T x);
 
+    T abs(T x);
+
+    T square(T x);
+
+    T mod (T x, T y);
+
     boolean isValidSymbol(char elem);
 
     TripleExpression<T> parseConst(String str) throws ConstantFormatException;

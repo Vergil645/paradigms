@@ -3,63 +3,62 @@ package expression.calculator;
 import expression.Const;
 import expression.TripleExpression;
 import expression.exceptions.ConstantFormatException;
-import expression.exceptions.OverflowException;
 
-public class DoubleCalculator implements Calculator<Double> {
+public class UncheckedIntegerCalculator implements Calculator<Integer> {
     @Override
-    public Double valueOf(int x) {
-        return (double) x;
+    public Integer valueOf(int x) {
+        return x;
     }
 
     @Override
-    public Double add(Double x, Double y) {
+    public Integer add(Integer x, Integer y) {
         return x + y;
     }
 
     @Override
-    public Double subtract(Double x, Double y) {
+    public Integer subtract(Integer x, Integer y) {
         return x - y;
     }
 
     @Override
-    public Double multiply(Double x, Double y) {
+    public Integer multiply(Integer x, Integer y) {
         return x * y;
     }
 
     @Override
-    public Double divide(Double x, Double y) {
+    public Integer divide(Integer x, Integer y) {
         return x / y;
     }
 
     @Override
-    public Double negate(Double x) {
+    public Integer negate(Integer x) {
         return -x;
     }
 
     @Override
-    public Double abs(Double x) {
+    public Integer abs(Integer x) {
         return x >= 0 ? x : -x;
     }
 
     @Override
-    public Double square(Double x) {
+    public Integer square(Integer x) {
         return x * x;
     }
 
     @Override
-    public Double mod (Double x, Double y) {
+    public Integer mod(Integer x, Integer y) {
         return x % y;
     }
 
     @Override
     public boolean isValidSymbol(char elem) {
-        return elem == '.' || ('0' <= elem && elem <= '9');
+        return '0' <= elem && elem <= '9';
     }
 
     @Override
-    public TripleExpression<Double> parseConst(String str) throws ConstantFormatException {
+    public TripleExpression<Integer> parseConst(String str) throws ConstantFormatException {
         try {
-            return new Const<>(Double.parseDouble(str));
+            return new Const<>(Integer.parseInt(str));
         } catch (NumberFormatException e) {
             throw new ConstantFormatException("Invalid constant: " + str);
         }

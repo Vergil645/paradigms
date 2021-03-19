@@ -42,6 +42,21 @@ public class BigIntegerCalculator implements Calculator<BigInteger> {
     }
 
     @Override
+    public BigInteger abs(BigInteger x) {
+        return x.abs();
+    }
+
+    @Override
+    public BigInteger square(BigInteger x) {
+        return x.multiply(x);
+    }
+
+    @Override
+    public BigInteger mod (BigInteger x, BigInteger y) {
+        return x.mod(y);
+    }
+
+    @Override
     public boolean isValidSymbol(char elem) {
         return '0' <= elem && elem <= '9';
     }

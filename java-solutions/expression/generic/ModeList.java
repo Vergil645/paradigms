@@ -7,7 +7,10 @@ public class ModeList {
     public static final Map<String, Calculator<?>> CALCULATORS = Map.ofEntries(
             Map.entry("i", new IntegerCalculator()),
             Map.entry("d", new DoubleCalculator()),
-            Map.entry("bi", new BigIntegerCalculator())
+            Map.entry("bi", new BigIntegerCalculator()),
+            Map.entry("u", new UncheckedIntegerCalculator()),
+            Map.entry("p", new ModIntegerCalculator()),
+            Map.entry("b", new ByteCalculator())
     );
 
     public static final String VALID_MODES;
