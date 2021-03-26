@@ -16,6 +16,7 @@ const addOperation = function (arity, func, ...operators) {
     return func;
 }
 
+// :NOTE: Дублирование
 const addUnaryOperation = (func, ...operators) =>
     addOperation(1, f => (...args) => func(f(...args)), ...operators);
 const addBinaryOperation = (func, ...operators) =>
@@ -24,7 +25,8 @@ const addTernaryOperation = (func1, func2, ...operators) =>
     addOperation(3, (f, g, p) => (...args) => func1(func2(f(...args), g(...args)), p(...args)), ...operators);
 
 const cnst = value => () => value;
-const variable = (name) => (...args) => args[ARGUMENT_POSITION[name]];
+const variable = nme) => (...args) => args[ARGUMENT_POSITION[name]];
+
 const add = addBinaryOperation(elemAdd, "+");
 const subtract = addBinaryOperation(elemSub, "-");
 const multiply = addBinaryOperation(elemMul, "*");
@@ -33,7 +35,7 @@ const negate = addUnaryOperation(elemNegate, "negate");
 
 const one = CONSTANTS["one"];
 const two = CONSTANTS["two"];
-const madd = addTernaryOperation(elemAdd, elemMul, "*+", "madd");
+const madd = addTernaryOperation((a, b, c) => a * b + c, "*+", "madd");
 const floor = addUnaryOperation(Math.floor, "_", "floor");
 const ceil = addUnaryOperation(Math.ceil, "^", "ceil");
 
