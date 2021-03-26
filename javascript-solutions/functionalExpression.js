@@ -4,7 +4,10 @@ const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 const CONSTANTS = {"one": () => 1, "two": () => 2};
 const elemAdd = (x, y) => x + y;
+const elemSub = (x, y) => x - y;
 const elemMul = (x, y) => x * y;
+const elemDiv = (x, y) => x / y;
+const elemNegate = x => -x;
 
 const addOperation = function (arity, func, ...operators) {
     for (const operator of operators) {
@@ -12,6 +15,9 @@ const addOperation = function (arity, func, ...operators) {
     }
     return func;
 }
+
+const addUnaryOperation = (func, ...operators) =>
+    addOperation(1, f => (...args) => func(f(...args)), ...operators);
 const addBinaryOperation = (func, ...operators) =>
     addOperation(2, (f, g) => (...args) => func(f(...args), g(...args)), ...operators)
 const addTernaryOperation = (func1, func2, ...operators) =>
@@ -20,10 +26,10 @@ const addTernaryOperation = (func1, func2, ...operators) =>
 const cnst = value => () => value;
 const variable = (name) => (...args) => args[ARGUMENT_POSITION[name]];
 const add = addBinaryOperation(elemAdd, "+");
-const subtract = addBinaryOperation((x, y) => x - y, "-");
+const subtract = addBinaryOperation(elemSub, "-");
 const multiply = addBinaryOperation(elemMul, "*");
-const divide = addBinaryOperation((x, y) => x / y, "/");
-const negate = addOperation(1, f => (...args) => -f(...args), "negate");
+const divide = addBinaryOperation(elemDiv, "/");
+const negate = addUnaryOperation(elemNegate, "negate");
 
 const one = CONSTANTS["one"];
 const two = CONSTANTS["two"];
