@@ -14,9 +14,6 @@ const addBinaryOperation = function (operator, func) {
     return addOperation(2, (f, g) => (...args) => func(f(...args), g(...args)), operator);
 }
 
-const min = (x, y) => x < y ? x : y;
-const max = (x, y) => x > y ? x : y;
-
 const cnst = value => () => value;
 const variable = (name) => (...args) => args[ARGUMENT_POSITION[name]];
 const add = addBinaryOperation("+", (x, y) => x + y);
