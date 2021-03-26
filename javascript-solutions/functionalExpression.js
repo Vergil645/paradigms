@@ -34,8 +34,8 @@ const negate = addUnaryOperation(elemNegate, "negate");
 const one = CONSTANTS["one"];
 const two = CONSTANTS["two"];
 const madd = addTernaryOperation(elemAdd, elemMul, "*+", "madd");
-const floor = addOperation(1, f => (...args) => Math.floor(f(...args)), "_", "floor");
-const ceil = addOperation(1, f => (...args) => Math.ceil(f(...args)), "^", "ceil");
+const floor = addUnaryOperation(Math.floor, "_", "floor");
+const ceil = addUnaryOperation(Math.ceil, "^", "ceil");
 
 function parse(expression) {
     let stack = [];
