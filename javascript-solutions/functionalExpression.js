@@ -3,11 +3,6 @@
 const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 const CONSTANTS = {"one": () => 1, "two": () => 2};
-const elemAdd = (x, y) => x + y;
-const elemSub = (x, y) => x - y;
-const elemMul = (x, y) => x * y;
-const elemDiv = (x, y) => x / y;
-const elemNegate = x => -x;
 
 const addOperation = function (arity, func, ...operators) {
     for (const operator of operators) {
@@ -16,28 +11,22 @@ const addOperation = function (arity, func, ...operators) {
     return func;
 }
 
-// :NOTE: Дублирование
-const addUnaryOperation = (func, ...operators) =>
-    addOperation(1, f => (...args) => func(f(...args)), ...operators);
-const addBinaryOperation = (func, ...operators) =>
-    addOperation(2, (f, g) => (...args) => func(f(...args), g(...args)), ...operators)
-const addTernaryOperation = (func1, func2, ...operators) =>
-    addOperation(3, (f, g, p) => (...args) => func1(func2(f(...args), g(...args)), p(...args)), ...operators);
+const operation = calc => (...functions) => (...args) => calc(...functions.map(f => f(...args)));
 
 const cnst = value => () => value;
-const variable = nme) => (...args) => args[ARGUMENT_POSITION[name]];
+const variable = (name) => (...args) => args[ARGUMENT_POSITION[name]];
 
-const add = addBinaryOperation(elemAdd, "+");
-const subtract = addBinaryOperation(elemSub, "-");
-const multiply = addBinaryOperation(elemMul, "*");
-const divide = addBinaryOperation(elemDiv, "/");
-const negate = addUnaryOperation(elemNegate, "negate");
+const add = addOperation(2, operation((x, y) => x + y), "+");
+const subtract = addOperation(2, operation((x, y) => x - y), "-");
+const multiply = addOperation(2, operation((x, y) => x * y), "*");
+const divide = addOperation(2, operation((x, y) => x / y), "/");
+const negate = addOperation(1, operation(x => -x), "negate");
 
 const one = CONSTANTS["one"];
 const two = CONSTANTS["two"];
-const madd = addTernaryOperation((a, b, c) => a * b + c, "*+", "madd");
-const floor = addUnaryOperation(Math.floor, "_", "floor");
-const ceil = addUnaryOperation(Math.ceil, "^", "ceil");
+const madd = addOperation(3, operation((x, y, z) => x * y + z), "*+", "madd");
+const floor = addOperation(1, operation(Math.floor), "_", "floor");
+const ceil = addOperation(1, operation(Math.ceil), "^", "ceil");
 
 function parse(expression) {
     let stack = [];
