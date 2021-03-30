@@ -22,7 +22,6 @@ const variable = (name) => {
     const arg_pos = ARGUMENT_POSITION[name];
     return (...args) => args[arg_pos];
 }
-
 const add = addOperation(2, (x, y) => x + y, "+");
 const subtract = addOperation(2, (x, y) => x - y, "-");
 const multiply = addOperation(2, (x, y) => x * y, "*");
