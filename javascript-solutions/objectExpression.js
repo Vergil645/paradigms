@@ -166,15 +166,14 @@ function Hypot(f, g) { AbstractOperation.call(this, f, g); }
 Hypot.prototype = OperationFactory(
     Hypot,
     (x, y) => x * x + y * y,
-    undefined,
+    function (diff_0, diff_1) {
+        return new Add(
+            new Multiply(new Multiply(new Const(2), this.expressions[0]), diff_0),
+            new Multiply(new Multiply(new Const(2), this.expressions[1]), diff_1)
+        )
+    },
     "hypot"
 );
-Hypot.prototype.diff = function (var_name) {
-    return new Add(
-        new Multiply(this.expressions[0], this.expressions[0]),
-        new Multiply(this.expressions[1], this.expressions[1])
-    ).diff(var_name);
-}
 // Hypot.prototype.simplifyImpl = (simple_0, simple_1) => {
 //     if (Const.equals(simple_0, 0)) return new Multiply(simple_1, simple_1);
 //     if (Const.equals(simple_1, 0)) return new Multiply(simple_0, simple_0);
