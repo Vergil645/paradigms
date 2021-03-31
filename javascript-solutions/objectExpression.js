@@ -144,3 +144,24 @@ Negate.prototype = OperationFactory(Negate, "negate");
 Negate.prototype.evaluateImpl = (x) => -x;
 Negate.prototype.diffImpl = (diff_0) => new Negate(diff_0);
 Negate.prototype.simplifyImpl = (simple_0) => new Negate(simple_0);
+
+function Hypot(f, g) { AbstractOperation.call(this, f, g); }
+Hypot.prototype = OperationFactory(Hypot, "hypot");
+Hypot.prototype.evaluateImpl = (x, y) => x * x + y * y;
+Hypot.prototype.diffImpl = (diff_0, diff_1) => {
+    return new Add(
+        new Multiply(
+            new Multiply(new Const(2), this.expressions[0]),
+            diff_0
+        ),
+        new Multiply(
+            new Multiply(new Const(2), this.expressions[1]),
+            diff_1
+        )
+    );
+}
+Hypot.prototype.simplifyImpl = (simple_0, simple_1) => {
+    if (Const.equals(simple_0, 0)) return new Multiply(simple_1, simple_1);
+    if (Const.equals(simple_1, 0)) return new Multiply(simple_0, simple_0);
+    return new Add(simple_0, simple_1);
+}
