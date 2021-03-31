@@ -200,3 +200,5 @@ HMean.prototype.diff = function (var_name) {
 //     if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
 //     return new HMean(simple_0, simple_1);
 // }
+
+
