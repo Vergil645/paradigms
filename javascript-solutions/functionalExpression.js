@@ -6,21 +6,23 @@ const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
 function addOperation(calc, ...operators) {
     const func = (...expressions) => (...args) => calc(...expressions.map(expr => expr(...args)));
-    for (const operator of operators)
+    for (const operator of operators) {
         OPERATIONS[operator] = {arity: calc.length, func: func};
+    }
     return func;
 }
 function addConstant(value, ...names) {
     const func = () => value;
-    for (const name of names)
+    for (const name of names) {
         CONSTANTS[name] = func;
+    }
     return func;
 }
 
 const cnst = value => () => value;
 const variable = (name) => {
-    const arg_pos = ARGUMENT_POSITION[name];
-    return (...args) => args[arg_pos];
+    const argIndex = ARGUMENT_POSITION[name];
+    return (...args) => args[argIndex];
 }
 const add = addOperation((x, y) => x + y, "+");
 const subtract = addOperation((x, y) => x - y, "-");
