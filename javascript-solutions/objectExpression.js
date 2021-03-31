@@ -4,10 +4,12 @@ const CONSTANTS = {};
 const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
-function OperationFactory(constructor, ...operators) {
+function OperationFactory(constructor, evaluateImpl, diffImpl, ...operators) {
     let res = Object.create(AbstractOperation.prototype);
     res.operator = operators[0];
     res.constructor = constructor;
+    res.evaluateImpl = evaluateImpl;
+    res.diffImpl = diffImpl;
     for (let operator of operators)
         OPERATIONS[operator] = constructor;
     return res;
@@ -79,9 +81,12 @@ AbstractOperation.prototype.toString = function () {
 
 
 function Add(f, g) { AbstractOperation.call(this, f, g); }
-Add.prototype = OperationFactory(Add, "+");
-Add.prototype.evaluateImpl = (x, y) => x + y;
-Add.prototype.diffImpl = (diff_0, diff_1) => new Add(diff_0, diff_1);
+Add.prototype = OperationFactory(
+    Add,
+    (x, y) => x + y,
+    (diff_0, diff_1) => new Add(diff_0, diff_1),
+    "+"
+);
 // Add.prototype.simplifyImpl = (simple_0, simple_1) => {
 //     if (Const.equals(simple_0, 0)) return simple_1;
 //     if (Const.equals(simple_1, 0)) return simple_0;
@@ -90,9 +95,12 @@ Add.prototype.diffImpl = (diff_0, diff_1) => new Add(diff_0, diff_1);
 
 
 function Subtract(f, g) { AbstractOperation.call(this, f, g); }
-Subtract.prototype = OperationFactory(Subtract, "-");
-Subtract.prototype.evaluateImpl = (x, y) => x - y;
-Subtract.prototype.diffImpl = (diff_0, diff_1) => new Subtract(diff_0, diff_1);
+Subtract.prototype = OperationFactory(
+    Subtract,
+    (x, y) => x - y,
+    (diff_0, diff_1) => new Subtract(diff_0, diff_1),
+    "-"
+);
 // Subtract.prototype.simplifyImpl = (simple_0, simple_1) => {
 //     if (Const.equals(simple_0, 0)) return new Negate(simple_1);
 //     if (Const.equals(simple_1, 0)) return simple_0;
@@ -101,14 +109,17 @@ Subtract.prototype.diffImpl = (diff_0, diff_1) => new Subtract(diff_0, diff_1);
 
 
 function Multiply(f, g) { AbstractOperation.call(this, f, g); }
-Multiply.prototype = OperationFactory(Multiply, "*");
-Multiply.prototype.evaluateImpl = (x, y) => x * y;
-Multiply.prototype.diffImpl = function (diff_0, diff_1) {
-    return new Add(
-        new Multiply(this.expressions[0], diff_1),
-        new Multiply(diff_0, this.expressions[1])
-    );
-}
+Multiply.prototype = OperationFactory(
+    Multiply,
+    (x, y) => x * y,
+    function (diff_0, diff_1) {
+        return new Add(
+            new Multiply(this.expressions[0], diff_1),
+            new Multiply(diff_0, this.expressions[1])
+        );
+    },
+    "*"
+);
 // Multiply.prototype.simplifyImpl = (simple_0, simple_1) => {
 //     if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
 //     if (Const.equals(simple_0, 1)) return simple_1;
@@ -120,17 +131,20 @@ Multiply.prototype.diffImpl = function (diff_0, diff_1) {
 
 
 function Divide(f, g) { AbstractOperation.call(this, f, g); }
-Divide.prototype = OperationFactory(Divide, "/");
-Divide.prototype.evaluateImpl = (x, y) => x / y;
-Divide.prototype.diffImpl = function (diff_0, diff_1) {
-    return new Divide(
-        new Subtract(
-            new Multiply(diff_0, this.expressions[1]),
-            new Multiply(this.expressions[0], diff_1)
-        ),
-        new Multiply(this.expressions[1], this.expressions[1])
-    );
-}
+Divide.prototype = OperationFactory(
+    Divide,
+    (x, y) => x / y,
+    function (diff_0, diff_1) {
+        return new Divide(
+            new Subtract(
+                new Multiply(diff_0, this.expressions[1]),
+                new Multiply(this.expressions[0], diff_1)
+            ),
+            new Multiply(this.expressions[1], this.expressions[1])
+        );
+    },
+    "/"
+);
 // Divide.prototype.simplifyImpl = (simple_0, simple_1) => {
 //     if (Const.equals(simple_0, 0)) return new Const(0);
 //     if (Const.equals(simple_1, 1)) return simple_0;
@@ -140,14 +154,21 @@ Divide.prototype.diffImpl = function (diff_0, diff_1) {
 
 
 function Negate(f) { AbstractOperation.call(this, f); }
-Negate.prototype = OperationFactory(Negate, "negate");
-Negate.prototype.evaluateImpl = (x) => -x;
-Negate.prototype.diffImpl = (diff_0) => new Negate(diff_0);
-Negate.prototype.simplifyImpl = (simple_0) => new Negate(simple_0);
+Negate.prototype = OperationFactory(
+    Negate,
+    (x) => -x,
+    (diff_0) => new Negate(diff_0),
+    "negate"
+);
+// Negate.prototype.simplifyImpl = (simple_0) => new Negate(simple_0);
 
 function Hypot(f, g) { AbstractOperation.call(this, f, g); }
-Hypot.prototype = OperationFactory(Hypot, "hypot");
-Hypot.prototype.evaluateImpl = (x, y) => x * x + y * y;
+Hypot.prototype = OperationFactory(
+    Hypot,
+    (x, y) => x * x + y * y,
+    undefined,
+    "hypot"
+);
 Hypot.prototype.diff = function (var_name) {
     return new Add(
         new Multiply(this.expressions[0], this.expressions[0]),
@@ -161,8 +182,12 @@ Hypot.prototype.diff = function (var_name) {
 // }
 
 function HMean(f, g) { AbstractOperation.call(this, f, g); }
-HMean.prototype = OperationFactory(HMean, "hmean");
-HMean.prototype.evaluateImpl = (x, y) => 2 / (1 / x + 1 / y);
+HMean.prototype = OperationFactory(
+    HMean,
+    (x, y) => 2 / (1 / x + 1 / y),
+    undefined,
+    "hmean"
+);
 HMean.prototype.diff = function (var_name) {
     return new Divide(
         new Const(2),
