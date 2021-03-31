@@ -4,15 +4,30 @@ const CONSTANTS = {};
 const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
-function OperationFactory(constructor, evaluateImpl, diffImpl, ...operators) {
-    let res = Object.create(AbstractOperation.prototype);
-    res.operator = operators[0];
-    res.constructor = constructor;
-    res.evaluateImpl = evaluateImpl;
-    res.diffImpl = diffImpl;
+function ExpressionFactory(Expression, evaluate, diff, simplify, toString) {
+    Expression.prototype = {
+        constructor: Expression,
+        evaluate: evaluate,
+        diff: diff,
+        simplify: simplify,
+        toString: toString
+    };
+    return Expression;
+}
+
+function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, ...operators) {
+    function Operation(...expressions) {
+        AbstractOperation.call(this, ...expressions);
+    }
+    Operation.prototype = Object.create(AbstractOperation.prototype);
+    Operation.prototype.constructor = Operation;
+    Operation.prototype.evaluateImpl = evaluateImpl;
+    Operation.prototype.diffImpl = diffImpl;
+    Operation.prototype.simplifyImpl = simplifyImpl;
+    Operation.prototype.operator = operators[0];
     for (let operator of operators)
-        OPERATIONS[operator] = constructor;
-    return res;
+        OPERATIONS[operator] = Operation;
+    return Operation;
 }
 
 function parse(expression) {
@@ -20,7 +35,7 @@ function parse(expression) {
     for (const token of expression.split(" ").filter(word => word !== "")) {
         if (token in OPERATIONS) {
             const op = OPERATIONS[token];
-            stack.push(new op(...stack.splice(-op.length)));
+            stack.push(new op(...stack.splice(-op.prototype.evaluateImpl.length)));
         } else if (token in ARGUMENT_POSITION) {
             stack.push(new Variable(token));
         } else if (token in CONSTANTS) {
@@ -32,173 +47,153 @@ function parse(expression) {
     return stack.pop();
 }
 
-
-function Const(value) { this.value = value; }
-Const.prototype.constructor = Const;
-Const.prototype.evaluate = function () { return this.value; }
-Const.prototype.diff = () => new Const(0);
-// Const.prototype.simplify = function () { return new Const(this.value); }
-Const.prototype.toString = function () { return this.value.toString(); }
+const Const = ExpressionFactory(
+    function (value) { this.value = value; },
+    function () { return this.value; },
+    () => Const.ZERO,
+    function () { return new Const(this.value); },
+    function () { return this.value.toString(); }
+);
+Const.ZERO = new Const(0);
+Const.ONE = new Const(1);
+Const.TWO = new Const(2);
 Const.equals = (expression, value) => {
     return expression.constructor === Const && (value === undefined || expression.evaluate() === value);
-}
+};
 
 
-function Variable(name) {
-    this.arg_pos = ARGUMENT_POSITION[name];
-    this.name = name;
-}
-Variable.prototype.constructor = Variable;
-Variable.prototype.evaluate = function (...args) { return args[this.arg_pos]; }
-Variable.prototype.diff = function (var_name) { return new Const(this.name === var_name ? 1 : 0); }
-// Variable.prototype.simplify = function () { return new Variable(this.name); }
-Variable.prototype.toString = function () { return this.name; }
+const Variable = ExpressionFactory(
+    function(name) {
+        this.arg_pos = ARGUMENT_POSITION[name];
+        this.name = name;
+    },
+    function (...args) { return args[this.arg_pos]; },
+    function (var_name) { return this.name === var_name ? Const.ONE : Const.ZERO; },
+    function () { return new Variable(this.name); },
+    function () { return this.name; }
+);
 
 
-function AbstractOperation(...expressions) { this.expressions = expressions; }
-AbstractOperation.prototype.constructor = AbstractOperation;
-AbstractOperation.prototype.evaluateImpl = () => undefined;
-AbstractOperation.prototype.evaluate = function (...args) {
-    return this.evaluateImpl(...this.expressions.map(expr => expr.evaluate(...args)));
-}
-AbstractOperation.prototype.diffImpl = () => undefined;
-AbstractOperation.prototype.diff = function (var_name) {
-    return this.diffImpl(...this.expressions.map(expr => expr.diff(var_name)));
-}
-// AbstractOperation.prototype.simplifyImpl = () => undefined;
-// AbstractOperation.prototype.simplify = function () {
-//     let simples = this.expressions.map(expr => expr.simplify());
-//     for (let simple of simples) {
-//         if (!Const.equals(simple))
-//             return this.simplifyImpl(...simples);
-//     }
-//     return new Const(this.evaluateImpl(...simples.map(expr => expr.evaluate())));
-// }
-AbstractOperation.prototype.operator = undefined;
-AbstractOperation.prototype.toString = function () {
-    return String.prototype.concat(...this.expressions.map(expr => `${expr.toString()} `), this.operator);
-}
+const AbstractOperation = ExpressionFactory(
+    function (...expressions) { this.expressions = expressions; },
+    function (...args) {
+        return this.evaluateImpl(...this.expressions.map(expr => expr.evaluate(...args)));
+    },
+    function (var_name) {
+        return this.diffImpl(...this.expressions, ...this.expressions.map(expr => expr.diff(var_name)));
+    },
+    function () {
+        let simples = this.expressions.map(expr => expr.simplify());
+        for (let simple of simples) {
+            if (!Const.equals(simple))
+                return this.simplifyImpl(...simples);
+        }
+        return new Const(this.evaluateImpl(...simples.map(expr => expr.evaluate())));
+    },
+    function () {
+        return String.prototype.concat(...this.expressions.map(expr => `${expr.toString()} `), this.operator);
+    }
+);
 
 
-function Add(f, g) { AbstractOperation.call(this, f, g); }
-Add.prototype = OperationFactory(
-    Add,
+const Add = OperationFactory(
     (x, y) => x + y,
-    (diff_0, diff_1) => new Add(diff_0, diff_1),
+    (f, g, f_diff, g_diff) => new Add(f_diff, g_diff),
+    (simple_0, simple_1) => {
+        if (Const.equals(simple_0, 0)) return simple_1;
+        if (Const.equals(simple_1, 0)) return simple_0;
+        return new Add(simple_0, simple_1);
+    },
     "+"
 );
-// Add.prototype.simplifyImpl = (simple_0, simple_1) => {
-//     if (Const.equals(simple_0, 0)) return simple_1;
-//     if (Const.equals(simple_1, 0)) return simple_0;
-//     return new Add(simple_0, simple_1);
-// }
 
 
-function Subtract(f, g) { AbstractOperation.call(this, f, g); }
-Subtract.prototype = OperationFactory(
-    Subtract,
+const Subtract = OperationFactory(
     (x, y) => x - y,
-    (diff_0, diff_1) => new Subtract(diff_0, diff_1),
+    (f, g, f_diff, g_diff) => new Subtract(f_diff, g_diff),
+    (simple_0, simple_1) => {
+        if (Const.equals(simple_0, 0)) return new Negate(simple_1);
+        if (Const.equals(simple_1, 0)) return simple_0;
+        return new Subtract(simple_0, simple_1);
+    },
     "-"
 );
-// Subtract.prototype.simplifyImpl = (simple_0, simple_1) => {
-//     if (Const.equals(simple_0, 0)) return new Negate(simple_1);
-//     if (Const.equals(simple_1, 0)) return simple_0;
-//     return new Subtract(simple_0, simple_1);
-// }
 
 
-function Multiply(f, g) { AbstractOperation.call(this, f, g); }
-Multiply.prototype = OperationFactory(
-    Multiply,
+const Multiply = OperationFactory(
     (x, y) => x * y,
-    function (diff_0, diff_1) {
-        return new Add(
-            new Multiply(this.expressions[0], diff_1),
-            new Multiply(diff_0, this.expressions[1])
-        );
+    (f, g, f_diff, g_diff) => {
+        return new Add(new Multiply(f, g_diff), new Multiply(f_diff, g));
+    },
+    (simple_0, simple_1) => {
+        if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
+        if (Const.equals(simple_0, 1)) return simple_1;
+        if (Const.equals(simple_1, 1)) return simple_0;
+        if (Const.equals(simple_0, -1)) return new Negate(simple_1);
+        if (Const.equals(simple_1, -1)) return new Negate(simple_0);
+        return new Multiply(simple_0, simple_1);
     },
     "*"
 );
-// Multiply.prototype.simplifyImpl = (simple_0, simple_1) => {
-//     if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
-//     if (Const.equals(simple_0, 1)) return simple_1;
-//     if (Const.equals(simple_1, 1)) return simple_0;
-//     if (Const.equals(simple_0, -1)) return new Negate(simple_1);
-//     if (Const.equals(simple_1, -1)) return new Negate(simple_0);
-//     return new Multiply(simple_0, simple_1);
-// }
 
 
-function Divide(f, g) { AbstractOperation.call(this, f, g); }
-Divide.prototype = OperationFactory(
-    Divide,
+const Divide = OperationFactory(
     (x, y) => x / y,
-    function (diff_0, diff_1) {
+    (f, g, f_diff, g_diff) => {
         return new Divide(
-            new Subtract(
-                new Multiply(diff_0, this.expressions[1]),
-                new Multiply(this.expressions[0], diff_1)
-            ),
-            new Multiply(this.expressions[1], this.expressions[1])
+            new Subtract(new Multiply(f_diff, g), new Multiply(f, g_diff)),
+            new Multiply(g, g)
         );
+    },
+    (simple_0, simple_1) => {
+        if (Const.equals(simple_0, 0)) return new Const(0);
+        if (Const.equals(simple_1, 1)) return simple_0;
+        if (Const.equals(simple_1, -1)) return new Negate(simple_0);
+        return new Divide(simple_0, simple_1);
     },
     "/"
 );
-// Divide.prototype.simplifyImpl = (simple_0, simple_1) => {
-//     if (Const.equals(simple_0, 0)) return new Const(0);
-//     if (Const.equals(simple_1, 1)) return simple_0;
-//     if (Const.equals(simple_1, -1)) return new Negate(simple_0);
-//     return new Divide(simple_0, simple_1);
-// }
 
 
-function Negate(f) { AbstractOperation.call(this, f); }
-Negate.prototype = OperationFactory(
-    Negate,
+const Negate = OperationFactory(
     (x) => -x,
-    (diff_0) => new Negate(diff_0),
+    (f, f_diff) => new Negate(f_diff),
+    (simple_0) => new Negate(simple_0),
     "negate"
 );
-// Negate.prototype.simplifyImpl = (simple_0) => new Negate(simple_0);
 
-function Hypot(f, g) { AbstractOperation.call(this, f, g); }
-Hypot.prototype = OperationFactory(
-    Hypot,
+
+const Hypot = OperationFactory(
     (x, y) => x * x + y * y,
-    function (diff_0, diff_1) {
+    (f, g, f_diff, g_diff) => {
         return new Add(
-            new Multiply(new Multiply(new Const(2), this.expressions[0]), diff_0),
-            new Multiply(new Multiply(new Const(2), this.expressions[1]), diff_1)
+            Multiply.prototype.diffImpl(f, f, f_diff, f_diff),
+            Multiply.prototype.diffImpl(g, g, g_diff, g_diff)
         )
+    },
+    (simple_0, simple_1) => {
+        if (Const.equals(simple_0, 0)) return new Multiply(simple_1, simple_1);
+        if (Const.equals(simple_1, 0)) return new Multiply(simple_0, simple_0);
+        return new Hypot(simple_0, simple_1);
     },
     "hypot"
 );
-// Hypot.prototype.simplifyImpl = (simple_0, simple_1) => {
-//     if (Const.equals(simple_0, 0)) return new Multiply(simple_1, simple_1);
-//     if (Const.equals(simple_1, 0)) return new Multiply(simple_0, simple_0);
-//     return new Hypot(simple_0, simple_1);
-// }
 
-function HMean(f, g) { AbstractOperation.call(this, f, g); }
-HMean.prototype = OperationFactory(
-    HMean,
+
+const HMean = OperationFactory(
     (x, y) => 2 / (1 / x + 1 / y),
-    undefined,
+    (f, g, f_diff, g_diff) => {
+        return new Divide(
+            new Multiply(
+                Const.TWO,
+                new Add(new Multiply(new Multiply(g, g), f_diff), new Multiply(new Multiply(f, f), g_diff))
+            ),
+            new Multiply(new Add(f, g), new Add(f, g))
+        );
+    },
+    (simple_0, simple_1) => {
+        if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
+        return new HMean(simple_0, simple_1);
+    },
     "hmean"
 );
-HMean.prototype.diff = function (var_name) {
-    return new Divide(
-        new Const(2),
-        new Add(
-            new Divide(new Const(1), this.expressions[0]),
-            new Divide(new Const(1), this.expressions[1])
-        )
-    ).diff(var_name);
-}
-// HMean.prototype.simplifyImpl = (simple_0, simple_1) => {
-//     if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
-//     return new HMean(simple_0, simple_1);
-// }
-
-
