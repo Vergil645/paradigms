@@ -4,9 +4,8 @@ const CONSTANTS = {};
 const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
-function OperationFactory(constructor, arity, ...operators) {
+function OperationFactory(constructor, ...operators) {
     let res = Object.create(AbstractOperation.prototype);
-    res.arity = arity;
     res.operator = operators[0];
     res.constructor = constructor;
     for (let operator of operators)
@@ -19,7 +18,7 @@ function parse(expression) {
     for (const token of expression.split(" ").filter(word => word !== "")) {
         if (token in OPERATIONS) {
             const op = OPERATIONS[token];
-            stack.push(new op(...stack.splice(-op.prototype.arity)));
+            stack.push(new op(...stack.splice(-op.length)));
         } else if (token in ARGUMENT_POSITION) {
             stack.push(new Variable(token));
         } else if (token in CONSTANTS) {
@@ -80,7 +79,7 @@ AbstractOperation.prototype.toString = function () {
 
 
 function Add(f, g) { AbstractOperation.call(this, f, g); }
-Add.prototype = OperationFactory(Add, 2, "+");
+Add.prototype = OperationFactory(Add, "+");
 Add.prototype.evaluateImpl = (x, y) => x + y;
 Add.prototype.diffImpl = (diff_0, diff_1) => new Add(diff_0, diff_1);
 Add.prototype.simplifyImpl = (simple_0, simple_1) => {
@@ -91,7 +90,7 @@ Add.prototype.simplifyImpl = (simple_0, simple_1) => {
 
 
 function Subtract(f, g) { AbstractOperation.call(this, f, g); }
-Subtract.prototype = OperationFactory(Subtract, 2, "-");
+Subtract.prototype = OperationFactory(Subtract, "-");
 Subtract.prototype.evaluateImpl = (x, y) => x - y;
 Subtract.prototype.diffImpl = (diff_0, diff_1) => new Subtract(diff_0, diff_1);
 Subtract.prototype.simplifyImpl = (simple_0, simple_1) => {
@@ -102,7 +101,7 @@ Subtract.prototype.simplifyImpl = (simple_0, simple_1) => {
 
 
 function Multiply(f, g) { AbstractOperation.call(this, f, g); }
-Multiply.prototype = OperationFactory(Multiply, 2, "*");
+Multiply.prototype = OperationFactory(Multiply, "*");
 Multiply.prototype.evaluateImpl = (x, y) => x * y;
 Multiply.prototype.diffImpl = function (diff_0, diff_1) {
     return new Add(
@@ -121,7 +120,7 @@ Multiply.prototype.simplifyImpl = (simple_0, simple_1) => {
 
 
 function Divide(f, g) { AbstractOperation.call(this, f, g); }
-Divide.prototype = OperationFactory(Divide, 2, "/");
+Divide.prototype = OperationFactory(Divide, "/");
 Divide.prototype.evaluateImpl = (x, y) => x / y;
 Divide.prototype.diffImpl = function (diff_0, diff_1) {
     return new Divide(
@@ -141,7 +140,7 @@ Divide.prototype.simplifyImpl = (simple_0, simple_1) => {
 
 
 function Negate(f) { AbstractOperation.call(this, f); }
-Negate.prototype = OperationFactory(Negate, 1, "negate");
+Negate.prototype = OperationFactory(Negate, "negate");
 Negate.prototype.evaluateImpl = (x) => -x;
 Negate.prototype.diffImpl = (diff_0) => new Negate(diff_0);
 Negate.prototype.simplifyImpl = (simple_0) => new Negate(simple_0);

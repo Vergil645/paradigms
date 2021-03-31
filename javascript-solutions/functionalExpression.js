@@ -4,10 +4,10 @@ const OPERATIONS = {};
 const CONSTANTS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
-function addOperation(arity, calc, ...operators) {
+function addOperation(calc, ...operators) {
     const func = (...expressions) => (...args) => calc(...expressions.map(expr => expr(...args)));
     for (const operator of operators)
-        OPERATIONS[operator] = {arity: arity, func: func};
+        OPERATIONS[operator] = {arity: calc.length, func: func};
     return func;
 }
 function addConstant(value, ...names) {
@@ -22,17 +22,17 @@ const variable = (name) => {
     const arg_pos = ARGUMENT_POSITION[name];
     return (...args) => args[arg_pos];
 }
-const add = addOperation(2, (x, y) => x + y, "+");
-const subtract = addOperation(2, (x, y) => x - y, "-");
-const multiply = addOperation(2, (x, y) => x * y, "*");
-const divide = addOperation(2, (x, y) => x / y, "/");
-const negate = addOperation(1, x => -x, "negate");
+const add = addOperation((x, y) => x + y, "+");
+const subtract = addOperation((x, y) => x - y, "-");
+const multiply = addOperation((x, y) => x * y, "*");
+const divide = addOperation((x, y) => x / y, "/");
+const negate = addOperation(x => -x, "negate");
 
 const one = addConstant(1, "one");
 const two = addConstant(2, "two");
-const madd = addOperation(3, (x, y, z) => x * y + z, "*+", "madd");
-const floor = addOperation(1, Math.floor, "_", "floor");
-const ceil = addOperation(1, Math.ceil, "^", "ceil");
+const madd = addOperation((x, y, z) => x * y + z, "*+", "madd");
+const floor = addOperation(Math.floor, "_", "floor");
+const ceil = addOperation(Math.ceil, "^", "ceil");
 
 function parse(expression) {
     const stack = [];
