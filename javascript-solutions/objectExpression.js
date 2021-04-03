@@ -4,7 +4,7 @@ const CONSTANTS = {};
 const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
-function ExpressionFactory(Expression, evaluate, diff, simplify, toString, prefix, equals) {
+function ExpressionFactory(Expression, evaluate, diff, simplify, toString, prefix) {
     Expression.prototype = {
         constructor: Expression,
         evaluate: evaluate,
@@ -12,12 +12,11 @@ function ExpressionFactory(Expression, evaluate, diff, simplify, toString, prefi
         simplify: simplify,
         toString: toString,
         prefix: prefix,
-        equals: equals
     };
     return Expression;
 }
 
-function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, equals, ...operators) {
+function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, ...operators) {
     function Operation(...expressions) {
         AbstractOperation.call(this, ...expressions);
     }
@@ -26,7 +25,6 @@ function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, equals, ...opera
     Operation.prototype.evaluateImpl = evaluateImpl;
     Operation.prototype.diffImpl = diffImpl;
     Operation.prototype.simplifyImpl = simplifyImpl;
-    Operation.prototype.equals = equals;
     Operation.prototype.operator = operators[0];
     for (let operator of operators)
         OPERATIONS[operator] = Operation;
@@ -58,7 +56,6 @@ const Const = ExpressionFactory(
     function () { return new Const(this.value); },
     function () { return this.value.toString(); },
     function () { return this.value.toString(); },
-    function (expression) { return Const.equals(expression, this.value); }
 );
 Const.ZERO = new Const(0);
 Const.ONE = new Const(1);
@@ -78,7 +75,6 @@ const Variable = ExpressionFactory(
     function () { return new Variable(this.name); },
     function () { return this.name; },
     function () { return this.name; },
-    function (expression) { return expression.constructor === Variable && expression.name === this.name; }
 );
 
 
@@ -104,7 +100,6 @@ const AbstractOperation = ExpressionFactory(
     function () {
         return String.prototype.concat('(', this.operator, ...this.expressions.map(expr => ` ${expr.prefix()}`), ')');
     },
-    undefined
 );
 
 
@@ -115,10 +110,6 @@ const Add = OperationFactory(
         if (Const.equals(simple_0, 0)) return simple_1;
         if (Const.equals(simple_1, 0)) return simple_0;
         return new Add(simple_0, simple_1);
-    },
-    function (expression) {
-        return expression.constructor === Add
-            && (expression.expressions === this.expressions || expression.expressions.reverse() === this.expressions);
     },
     "+"
 );
@@ -131,9 +122,6 @@ const Subtract = OperationFactory(
         if (Const.equals(simple_0, 0)) return new Negate(simple_1);
         if (Const.equals(simple_1, 0)) return simple_0;
         return new Subtract(simple_0, simple_1);
-    },
-    function (expression) {
-        return expression.constructor === Subtract && expression.expressions === this.expressions;
     },
     "-"
 );
@@ -152,10 +140,6 @@ const Multiply = OperationFactory(
         if (Const.equals(simple_1, -1)) return new Negate(simple_0);
         return new Multiply(simple_0, simple_1);
     },
-    function (expression) {
-        return expression.constructor === Multiply
-            && (expression.expressions === this.expressions || expression.expressions.reverse() === this.expressions);
-    },
     "*"
 );
 
@@ -172,43 +156,7 @@ const Divide = OperationFactory(
         if (Const.equals(simple_0, 0)) return new Const(0);
         if (Const.equals(simple_1, 1)) return simple_0;
         if (Const.equals(simple_1, -1)) return new Negate(simple_0);
-        function createArray(expression, array) {
-            if (expression.constructor === Multiply) {
-                createArray(expression.expressions[0], array);
-                createArray(expression.expressions[1], array);
-            } else {
-                array.push(expression);
-            }
-        }
-        let array0 = [];
-        createArray(simple_0, array0);
-        let array1 = [];
-        createArray(simple_1, array1);
-        for (let i = 0; i < array0.length; i++) {
-            let ind = array1.findIndex((expr) => expr != null && expr.equals(array0[i]));
-            if (ind !== -1) {
-                array0[i] = null;
-                array1[ind] = null;
-            }
-        }
-        simple_0 = Const.ONE;
-        for (let expression of array0) {
-            if (expression === null) {
-                continue;
-            }
-            simple_0 = new Multiply(simple_0, expression);
-        }
-        simple_1 = Const.ONE;
-        for (let expression of array1) {
-            if (expression === null) {
-                continue;
-            }
-            simple_1 = new Multiply(simple_1, expression);
-        }
-        return new Divide(simple_0.simplify(), simple_1.simplify());
-    },
-    function (expression) {
-        return expression.constructor === Subtract && expression.expressions === this.expressions;
+        return new Divide(simple_0, simple_1);
     },
     "/"
 );
@@ -218,9 +166,6 @@ const Negate = OperationFactory(
     (x) => -x,
     (f, f_diff) => new Negate(f_diff),
     (simple_0) => new Negate(simple_0),
-    function (expression) {
-        return expression.constructor === Negate && expression.expressions === this.expressions;
-    },
     "negate"
 );
 
@@ -237,10 +182,6 @@ const Hypot = OperationFactory(
         if (Const.equals(simple_0, 0)) return new Multiply(simple_1, simple_1);
         if (Const.equals(simple_1, 0)) return new Multiply(simple_0, simple_0);
         return new Hypot(simple_0, simple_1);
-    },
-    function (expression) {
-        return expression.constructor === Hypot
-            && (expression.expressions === this.expressions || expression.expressions.reverse() === this.expressions);
     },
     "hypot"
 );
@@ -260,10 +201,6 @@ const HMean = OperationFactory(
     (simple_0, simple_1) => {
         if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
         return new HMean(simple_0, simple_1);
-    },
-    function (expression) {
-        return expression.constructor === HMean
-            && (expression.expressions === this.expressions || expression.expressions.reverse() === this.expressions);
     },
     "hmean"
 );
@@ -324,10 +261,3 @@ function parsePrefix(expression) {
     }
     return res;
 }
-
-// println(parse('x y hmean').diff('x').simplify());
-// println(parse('5 z /').diff('z').expressions[0].simplify());
-// println(parse('5 z /').diff('z').expressions[1].simplify());
-// println(parse('5 z /').diff('z').simplify());
-// println(parsePrefix("(/ (negate x) 2)"));
-// println(parsePrefix.checkCBS("(dflsdjf)dsfjsdj(dsfspdfj)"));
