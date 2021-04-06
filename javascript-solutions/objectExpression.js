@@ -4,19 +4,28 @@ const CONSTANTS = {};
 const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
-function ExpressionFactory(Expression, evaluate, diff, simplify, toString, prefix) {
-    Expression.prototype = {
-        constructor: Expression,
-        evaluate: evaluate,
-        diff: diff,
-        simplify: simplify,
-        toString: toString,
-        prefix: prefix,
-    };
+
+const AbstractExpressionPrototype = {
+    equals: function (expression) {
+        return expression.constructor === this.constructor && this.equalsImpl(expression);
+    }
+}
+
+
+function ExpressionFactory(Expression, evaluate, diff, simplify, toString, prefix, equalsImpl) {
+    Expression.prototype = Object.create(AbstractExpressionPrototype);
+    Expression.prototype.constructor = Expression;
+    Expression.prototype.evaluate = evaluate;
+    Expression.prototype.diff = diff;
+    Expression.prototype.simplify = simplify;
+    Expression.prototype.toString = toString;
+    Expression.prototype.prefix = prefix;
+    Expression.prototype.equalsImpl = equalsImpl;
     return Expression;
 }
 
-function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, ...operators) {
+
+function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
     function Operation(...expressions) {
         AbstractOperation.call(this, ...expressions);
     }
@@ -25,44 +34,27 @@ function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, ...operators) {
     Operation.prototype.evaluateImpl = evaluateImpl;
     Operation.prototype.diffImpl = diffImpl;
     Operation.prototype.simplifyImpl = simplifyImpl;
+    Operation.prototype.equalsImpl = equalsImpl;
     Operation.prototype.operator = operators[0];
     for (let operator of operators)
         OPERATIONS[operator] = Operation;
     return Operation;
 }
 
-function parse(expression) {
-    const stack = [];
-    for (const token of expression.trim().split(/\s+/)) {
-        if (token in OPERATIONS) {
-            const op = OPERATIONS[token];
-            stack.push(new op(...stack.splice(-op.prototype.evaluateImpl.length)));
-        } else if (token in ARGUMENT_POSITION) {
-            stack.push(new Variable(token));
-        } else if (token in CONSTANTS) {
-            stack.push(new CONSTANTS[token]);
-        } else {
-            stack.push(new Const(+token));
-        }
-    }
-    return stack.pop();
-}
-
 
 const Const = ExpressionFactory(
     function (value) { this.value = value; },
     function () { return this.value; },
-    () => Const.ZERO,
+    () => ZERO,
     function () { return new Const(this.value); },
     function () { return this.value.toString(); },
     function () { return this.value.toString(); },
+    function (expression) { return expression.evaluate() === this.value; }
 );
-Const.ZERO = new Const(0);
-Const.ONE = new Const(1);
-Const.TWO = new Const(2);
-Const.equals = (expression, value) => {
-    return expression.constructor === Const && (value === undefined || expression.evaluate() === value);
-};
+const ZERO = new Const(0);
+const ONE = new Const(1);
+const NEG_ONE = new Const(-1);
+const TWO = new Const(2);
 
 
 const Variable = ExpressionFactory(
@@ -71,10 +63,11 @@ const Variable = ExpressionFactory(
         this.name = name;
     },
     function (...args) { return args[this.arg_pos]; },
-    function (var_name) { return this.name === var_name ? Const.ONE : Const.ZERO; },
+    function (var_name) { return this.name === var_name ? ONE : ZERO; },
     function () { return new Variable(this.name); },
     function () { return this.name; },
     function () { return this.name; },
+    function (expression) { return expression.name === this.name; }
 );
 
 
@@ -89,27 +82,32 @@ const AbstractOperation = ExpressionFactory(
     function () {
         let simples = this.expressions.map(expr => expr.simplify());
         for (let simple of simples) {
-            if (!Const.equals(simple))
+            if (simple.constructor !== Const) {
                 return this.simplifyImpl(...simples);
+            }
         }
-        return new Const(this.evaluateImpl(...simples.map(expr => expr.evaluate())));
+        return new Const(this.evaluateImpl(...simples.map(expr => expr.value)));
     },
     function () {
         return String.prototype.concat(...this.expressions.map(expr => `${expr.toString()} `), this.operator);
     },
     function () {
         return String.prototype.concat('(', this.operator, ...this.expressions.map(expr => ` ${expr.prefix()}`), ')');
-    },
+    }
 );
 
 
 const Add = OperationFactory(
     (x, y) => x + y,
-    (f, g, f_diff, g_diff) => new Add(f_diff, g_diff),
-    (simple_0, simple_1) => {
-        if (Const.equals(simple_0, 0)) return simple_1;
-        if (Const.equals(simple_1, 0)) return simple_0;
-        return new Add(simple_0, simple_1);
+    (f, g, df, dg) => new Add(df, dg),
+    (f, g) => {
+        if (Const.prototype.equals.call(ZERO, f)) return g;
+        if (Const.prototype.equals.call(ZERO, g)) return f;
+        return new Add(f, g);
+    },
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]) && expr.expressions[1].equals(this.expressions[1])
+            || expr.expressions[0].equals(this.expressions[1]) && expr.expressions[1].equals(this.expressions[0]);
     },
     "+"
 );
@@ -117,11 +115,14 @@ const Add = OperationFactory(
 
 const Subtract = OperationFactory(
     (x, y) => x - y,
-    (f, g, f_diff, g_diff) => new Subtract(f_diff, g_diff),
-    (simple_0, simple_1) => {
-        if (Const.equals(simple_0, 0)) return new Negate(simple_1);
-        if (Const.equals(simple_1, 0)) return simple_0;
-        return new Subtract(simple_0, simple_1);
+    (f, g, df, dg) => new Subtract(df, dg),
+    (f, g) => {
+        if (Const.prototype.equals.call(ZERO, f)) return new Multiply(NEG_ONE, g);
+        if (Const.prototype.equals.call(ZERO, g)) return f;
+        return new Subtract(f, g);
+    },
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]) && expr.expressions[1].equals(this.expressions[1]);
     },
     "-"
 );
@@ -129,16 +130,18 @@ const Subtract = OperationFactory(
 
 const Multiply = OperationFactory(
     (x, y) => x * y,
-    (f, g, f_diff, g_diff) => {
-        return new Add(new Multiply(f, g_diff), new Multiply(f_diff, g));
+    (f, g, df, dg) => {
+        return new Add(new Multiply(f, dg), new Multiply(df, g));
     },
-    (simple_0, simple_1) => {
-        if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
-        if (Const.equals(simple_0, 1)) return simple_1;
-        if (Const.equals(simple_1, 1)) return simple_0;
-        if (Const.equals(simple_0, -1)) return new Negate(simple_1);
-        if (Const.equals(simple_1, -1)) return new Negate(simple_0);
-        return new Multiply(simple_0, simple_1);
+    (f, g) => {
+        if (Const.prototype.equals.call(ZERO, f) || Const.prototype.equals.call(ZERO, g)) { return ZERO; }
+        if (Const.prototype.equals.call(ONE, f)) return g;
+        if (Const.prototype.equals.call(ONE, g)) return f;
+        return new Multiply(f, g);
+    },
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]) && expr.expressions[1].equals(this.expressions[1])
+            || expr.expressions[0].equals(this.expressions[1]) && expr.expressions[1].equals(this.expressions[0]);
     },
     "*"
 );
@@ -146,17 +149,41 @@ const Multiply = OperationFactory(
 
 const Divide = OperationFactory(
     (x, y) => x / y,
-    (f, g, f_diff, g_diff) => {
-        return new Divide(
-            new Subtract(new Multiply(f_diff, g), new Multiply(f, g_diff)),
-            new Multiply(g, g)
-        );
+    (f, g, df, dg) => new Divide(new Subtract(new Multiply(df, g), new Multiply(f, dg)), new Multiply(g, g)),
+    (f, g) => {
+        if (Const.prototype.equals.call(ZERO, f)) return ZERO;
+        if (Const.prototype.equals.call(ONE, g)) return f;
+        function createArray(expr, array) {
+            if (expr.constructor === Multiply) {
+                createArray(expr.expressions[0], array);
+                createArray(expr.expressions[1], array);
+            } else {
+                array.push(expr);
+            }
+            return array;
+        }
+        let array0 = createArray(f, []);
+        let array1 = createArray(g, []);
+        let flag = true;
+        for (let i = 0; i < array0.length; i++) {
+            let ind = array1.findIndex((expr) => expr != null && expr.equals(array0[i]));
+            if (ind !== -1) {
+                array0[i] = null;
+                array1[ind] = null;
+                flag = false;
+            }
+        }
+        if (flag) {
+            return new Divide(f, g);
+        }
+        f = ONE;
+        g = ONE;
+        array0.forEach((expr) => { if (expr !== null) f = new Multiply(f, expr); });
+        array1.forEach((expr) => { if (expr !== null) g = new Multiply(g, expr); });
+        return Divide.prototype.simplifyImpl(f.simplify(), g.simplify());
     },
-    (simple_0, simple_1) => {
-        if (Const.equals(simple_0, 0)) return new Const(0);
-        if (Const.equals(simple_1, 1)) return simple_0;
-        if (Const.equals(simple_1, -1)) return new Negate(simple_0);
-        return new Divide(simple_0, simple_1);
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]) && expr.expressions[1].equals(this.expressions[1]);
     },
     "/"
 );
@@ -164,24 +191,26 @@ const Divide = OperationFactory(
 
 const Negate = OperationFactory(
     (x) => -x,
-    (f, f_diff) => new Negate(f_diff),
-    (simple_0) => new Negate(simple_0),
+    (f, df) => new Negate(df),
+    (f) => new Multiply(NEG_ONE, f),
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]);
+    },
     "negate"
 );
 
 
 const Hypot = OperationFactory(
     (x, y) => x * x + y * y,
-    (f, g, f_diff, g_diff) => {
-        return new Add(
-            Multiply.prototype.diffImpl(f, f, f_diff, f_diff),
-            Multiply.prototype.diffImpl(g, g, g_diff, g_diff)
-        )
+    (f, g, df, dg) => new Add(Square.prototype.diffImpl(f, df), Square.prototype.diffImpl(g, dg)),
+    (f, g) => {
+        if (Const.prototype.equals.call(ZERO, f)) return new Multiply(g, g);
+        if (Const.prototype.equals.call(ZERO, g)) return new Multiply(f, f);
+        return new Hypot(f, g);
     },
-    (simple_0, simple_1) => {
-        if (Const.equals(simple_0, 0)) return new Multiply(simple_1, simple_1);
-        if (Const.equals(simple_1, 0)) return new Multiply(simple_0, simple_0);
-        return new Hypot(simple_0, simple_1);
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]) && expr.expressions[1].equals(this.expressions[1])
+            || expr.expressions[0].equals(this.expressions[1]) && expr.expressions[1].equals(this.expressions[0]);
     },
     "hypot"
 );
@@ -189,75 +218,125 @@ const Hypot = OperationFactory(
 
 const HMean = OperationFactory(
     (x, y) => 2 / (1 / x + 1 / y),
-    (f, g, f_diff, g_diff) => {
+    (f, g, df, dg) => {
         return new Divide(
-            new Multiply(
-                Const.TWO,
-                new Add(new Multiply(new Multiply(g, g), f_diff), new Multiply(new Multiply(f, f), g_diff))
-            ),
-            new Multiply(new Add(f, g), new Add(f, g))
+            new Multiply(TWO, new Add(new Multiply(new Square(g), df), new Multiply(new Square(f), dg))),
+            new Square(new Add(f, g))
         );
     },
-    (simple_0, simple_1) => {
-        if (Const.equals(simple_0, 0) || Const.equals(simple_1, 0)) return new Const(0);
-        return new HMean(simple_0, simple_1);
+    (f, g) => {
+        if (Const.prototype.equals.call(ZERO, f) || Const.prototype.equals.call(ZERO, g)) { return ZERO; }
+        return new HMean(f, g);
+    },
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]) && expr.expressions[1].equals(this.expressions[1])
+            || expr.expressions[0].equals(this.expressions[1]) && expr.expressions[1].equals(this.expressions[0]);
     },
     "hmean"
 );
 
-function parsePrefix(expression) {
-    function invalidSymbolError(position, expected, found) {
-        return `Invalid symbol on position: ${position}\nExpected: ${expected}\nFound: ${found}`;
-    }
-    let i = 0;
-    function skip(f) {
-        for (; i < expression.length && f(expression[i]); i++) {}
-    }
-    function parseRec() {
-        if (i === expression.length) {
-            throw invalidSymbolError(i, "bracket expression, variable or constant", "nothing");
+
+const Square = OperationFactory(
+    (x) => x * x,
+    (f, df) => new Multiply(TWO, new Multiply(f, df)),
+    (f) => new Square(f),
+    function (expr) {
+        return expr.expressions[0].equals(this.expressions[0]);
+    },
+    "2 ^"
+);
+
+
+function parse(expression) {
+    const stack = [];
+    for (const word of expression.trim().split(/\s+/)) {
+        if (OPERATIONS.hasOwnProperty(word)) {
+            const op = OPERATIONS[word];
+            stack.push(new op(...stack.splice(-op.prototype.evaluateImpl.length)));
+        } else if (word in ARGUMENT_POSITION) {
+            stack.push(new Variable(word));
+        } else if (word in CONSTANTS) {
+            stack.push(new CONSTANTS[word]);
+        } else {
+            stack.push(new Const(+word));
         }
-        skip((ch) => ch === ' ');
-        if (expression[i] === '(') {
-            i++;
-            skip((ch) => ch === ' ');
-            let i0 = i;
-            skip((ch) => ch !== ' ' && ch !== '(');
-            let token = expression.slice(i0, i);
-            if (token in OPERATIONS) {
+    }
+    return stack.pop();
+}
+
+
+function InvalidSymbolError(token, expected) {
+    this.message = `Invalid symbol on position: ${token.value.begin}-${token.value.end}\n`;
+    this.message.join(`Expected: ${expected}\nFound: '${token.value.word}'`);
+}
+
+function* tokenGenerator(expression) {
+    let i = 0;
+    while (true) {
+        for (; i < expression.length && /^\s$/.test(expression[i]); i++) {}
+        if (i === expression.length) { return { word: '', begin: i, end: i}; }
+        if (expression[i] === '(' || expression[i] === ')') {
+            yield { word: expression[i], begin: ++i, end: i };
+            continue;
+        }
+        let i0 = i;
+        for (; i < expression.length && !/^\s|\(|\)$/.test(expression[i]); i++) {}
+        yield { word: expression.slice(i0, i), begin: i0 + 1, end: i };
+    }
+}
+
+function parsePrefix(expression) {
+    const gen = tokenGenerator(expression);
+    function parseRec() {
+        let token = gen.next();
+        if (token.done) {
+            throw new InvalidSymbolError(token, "bracket expression, variable or constant");
+        }
+        if (token.value.word === '(') {
+            token = gen.next();
+            if (OPERATIONS.hasOwnProperty(token.value.word)) {
                 let args = [];
-                let op = OPERATIONS[token];
+                let op = OPERATIONS[token.value.word];
                 while (args.length !== op.prototype.evaluateImpl.length) {
                     args.push(parseRec());
                 }
-                skip((ch) => ch === ' ');
-                if (i === expression.length || expression[i] !== ')') {
-                    throw invalidSymbolError(i, ')', (i < expression.length ? expression[i] : "nothing"));
+                token = gen.next();
+                if (token.done || token.value.word !== ')') {
+                    throw new InvalidSymbolError(token, ")");
                 }
-                i++;
                 return new op(...args);
             } else {
-                throw invalidSymbolError((i0 + 1) + "-" + i, "operator", expression.slice(i0, i));
+                throw new InvalidSymbolError(token, "operator");
             }
+        } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
+            return new Variable(token.value.word);
         } else {
-            let i0 = i;
-            skip((ch) => ch !== ' ' && ch !== '(' && ch !== ')');
-            let token = expression.slice(i0, i);
-            if (token in ARGUMENT_POSITION) {
-                return new Variable(token);
-            } else {
-                let res = new Const(+token);
-                if (isNaN(res)) {
-                    throw invalidSymbolError((i0 + 1) + "-" + i, "variable or constant", expression.slice(i0, i));
-                }
-                return res;
+            let constant = new Const(+token.value.word);
+            if (isNaN(constant)) {
+                throw new InvalidSymbolError(token, "variable or constant");
             }
+            return constant;
         }
     }
     let res = parseRec();
-    skip((ch) => ch === ' ');
-    if (i < expression.length) {
-        throw invalidSymbolError(i, "end of string", expression[i]);
+    let token = gen.next();
+    if (!token.done) {
+        throw new InvalidSymbolError(token, "end of string");
     }
     return res;
 }
+
+
+// println(new Add(Const.ZERO, Const.ZERO).constructor === Add)
+// println(new Add(Const.ZERO, Const.ZERO).equals(new Add(Const.ZERO, Const.ZERO)))
+// println(parse('x y z * /').diff('x').simplify())
+// println(parse('x y z - hypot').diff('z').simplify());
+// (/ (* (* 2 y) y) (* (+ x y) (+ x y)))
+// (/ 2 (* (+ (/ x y) 1) (+ (/ x y) 1)))
+// (* 2 (* (/ y (+ x y)) (/ y (+ x y))))
+// println(parse('x y hmean').diff('x').simplify().prefix());
+// println(parse('5 z /').diff('z').expressions[0].simplify());
+// println(parse('5 z /').diff('z').expressions[1].simplify());
+// println(parse('5 z /').diff('z').simplify());
+// println(parsePrefix("(/ (negate x) 2)"));
+// println(parsePrefix.checkCBS("(dflsdjf)dsfjsdj(dsfspdfj)"));
