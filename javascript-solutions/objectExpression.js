@@ -94,7 +94,7 @@ const Const = ExpressionFactory(
     },
     () => ZERO,
     function () {
-        return new Const(this.value());
+        return this;
     },
     function () {
         return this.value().toString();
@@ -124,7 +124,7 @@ const Variable = ExpressionFactory(
         return this.name() === var_name ? ONE : ZERO;
     },
     function () {
-        return new Variable(this.name());
+        return this;
     },
     function () {
         return this.name();
@@ -262,10 +262,14 @@ const Divide = OperationFactory(
         f = ONE;
         g = ONE;
         array0.forEach((expr) => {
-            if (expr !== null) f = new Multiply(f, expr);
+            if (expr !== null) {
+                f = new Multiply(f, expr);
+            }
         });
         array1.forEach((expr) => {
-            if (expr !== null) g = new Multiply(g, expr);
+            if (expr !== null) {
+                g = new Multiply(g, expr);
+            }
         });
         return Divide.prototype.simplifyImpl(f.simplify(), g.simplify());
     },
@@ -414,7 +418,7 @@ parsePrefix.InvalidSymbolError = function (token, expected) {
 }
 
 
-println(parsePrefix("(/ (* (* x y) (* x x)) (* (* y z) (* x x)))").simplify())
+// println(parsePrefix("(/ (* (* x y) (* x x)) (* (* y z) (* x x)))").simplify())
 
 // const T = OperationFactory(
 //     (x, y, z) => x + y + z,
