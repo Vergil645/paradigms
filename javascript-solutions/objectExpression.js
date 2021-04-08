@@ -348,11 +348,11 @@ function parsePrefix(expression) {
         } else if (ARGUMENT_POSITION.hasOwnProperty(token.value[0])) {
             return new Variable(token.value[0]);
         } else {
-            let constant = new Const(+token.value[0]);
-            if (isNaN(constant)) {
+            try {
+                return new Const(+token.value[0]);
+            } catch (e) {
                 throw new ParseError(token, "variable or constant");
             }
-            return constant;
         }
     }
 
@@ -383,8 +383,12 @@ class ParseError extends Error {
 function createArrayOfMultipliers(expr) {
     let array = [];
     if (expr.constructor === Multiply) {
-        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {array.push(elem)});
-        createArrayOfMultipliers(expr.terms[1]).forEach((elem) => {array.push(elem)});
+        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {
+            array.push(elem)
+        });
+        createArrayOfMultipliers(expr.terms[1]).forEach((elem) => {
+            array.push(elem)
+        });
     } else if (expr.constructor === Pow && Number.isInteger(expr.terms[1].value) && expr.terms[1].value > 0) {
         createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {
             for (let i = 0; i < expr.terms[1].value; i++) {
