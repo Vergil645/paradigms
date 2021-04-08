@@ -5,16 +5,409 @@ const OPERATIONS = {};
 const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
 
+const AbstractExpressionPrototype = {
+    equals: function (expr) {
+        return expr.constructor === this.constructor && this.equalsImpl(expr);
+    }
+}
+
+function expressionFactory(Constructor, isCorrectArguments, evaluate, diff, simplify, toString, prefix, equalsImpl) {
+    Constructor.prototype = Object.create(AbstractExpressionPrototype);
+    Constructor.prototype.constructor = Constructor;
+    Constructor.prototype.isCorrectArguments = isCorrectArguments;
+    Constructor.prototype.evaluate = evaluate;
+    Constructor.prototype.diff = diff;
+    Constructor.prototype.simplify = simplify;
+    Constructor.prototype.toString = toString;
+    Constructor.prototype.prefix = prefix;
+    Constructor.prototype.equalsImpl = equalsImpl;
+    return Constructor;
+}
+
+
+const Const = expressionFactory(
+    function (value) {
+        if (!this.isCorrectArguments(value)) {
+            throw new ArgumentsError(Const, value);
+        }
+        Object.defineProperty(this, "value", {value: value});
+    },
+    (value) => !isNaN(value),
+    function () {
+        return this.value;
+    },
+    () => ZERO,
+    function () {
+        return this;
+    },
+    function () {
+        return this.value.toString();
+    },
+    function () {
+        return this.value.toString();
+    },
+    function (expr) {
+        return expr.value === this.value;
+    }
+);
+
+const ZERO = new Const(0);
+const ONE = new Const(1);
+const NEG_ONE = new Const(-1);
+const TWO = new Const(2);
+
+
+const Variable = expressionFactory(
+    function (name) {
+        if (!this.isCorrectArguments(name)) {
+            throw new ArgumentsError(Variable, name);
+        }
+        Object.defineProperty(this, "argPos", {value: ARGUMENT_POSITION[name]});
+        Object.defineProperty(this, "name", {value: name});
+    },
+    (name) => typeof name === "string",
+    function (...args) {
+        return args[this.argPos];
+    },
+    function (varName) {
+        return this.name === varName ? ONE : ZERO;
+    },
+    function () {
+        return this;
+    },
+    function () {
+        return this.name;
+    },
+    function () {
+        return this.name;
+    },
+    function (expr) {
+        return expr.name === this.name;
+    }
+);
+
+
+const AbstractOperation = expressionFactory(
+    function (...terms) {
+        if (!this.isCorrectArguments(...terms)) {
+            throw new ArgumentsError(this.constructor, ...terms);
+        }
+        Object.defineProperty(this, "terms", {value: terms});
+    },
+    function (...terms) {
+        return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
+            && this.isCorrectArgumentsImpl(...terms);
+    },
+    function (...args) {
+        return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
+    },
+    function (varName) {
+        return this.diffImpl(...this.terms, ...this.terms.map(term => term.diff(varName)));
+    },
+    function () {
+        let simples = this.terms.map(expr => expr.simplify());
+        for (let simple of simples) {
+            if (simple.constructor !== Const) {
+                return this.simplifyImpl(...simples);
+            }
+        }
+        return new Const(this.evaluateImpl(...simples.map(term => term.value)));
+    },
+    function () {
+        return String.prototype.concat(...this.terms.map(term => `${term.toString()} `), this.operator);
+    },
+    function () {
+        return String.prototype.concat('(', this.operator, ...this.terms.map(term => ` ${term.prefix()}`), ')');
+    }
+);
+
+
+function operationFactory(isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
+    function OperationConstructor(...terms) {
+        AbstractOperation.call(this, ...terms);
+    }
+
+    OperationConstructor.prototype = Object.create(AbstractOperation.prototype);
+    OperationConstructor.prototype.constructor = OperationConstructor;
+    OperationConstructor.prototype.isCorrectArgumentsImpl = isCorrectTermsImpl;
+    OperationConstructor.prototype.evaluateImpl = evaluateImpl;
+    OperationConstructor.prototype.diffImpl = diffImpl;
+    OperationConstructor.prototype.simplifyImpl = simplifyImpl;
+    OperationConstructor.prototype.equalsImpl = equalsImpl;
+    OperationConstructor.prototype.operator = operators[0];
+    for (let operator of operators) {
+        OPERATIONS[operator] = OperationConstructor;
+    }
+    return OperationConstructor;
+}
+
+
+const Add = operationFactory(
+    () => true,
+    (x, y) => x + y,
+    (f, g, df, dg) => new Add(df, dg),
+    (f, g) => {
+        if (f.equals(ZERO)) {
+            return g;
+        } else if (g.equals(ZERO)) {
+            return f;
+        } else {
+            return new Add(f, g);
+        }
+    },
+    commutativeEquals,
+    "+"
+);
+
+
+const Subtract = operationFactory(
+    () => true,
+    (x, y) => x - y,
+    (f, g, df, dg) => new Subtract(df, dg),
+    (f, g) => {
+        if (f.equals(ZERO)) {
+            return new Multiply(NEG_ONE, g);
+        } else if (g.equals(ZERO)) {
+            return f;
+        } else {
+            return new Subtract(f, g);
+        }
+    },
+    nonCommutativeEquals,
+    "-"
+);
+
+
+const Multiply = operationFactory(
+    () => true,
+    (x, y) => x * y,
+    (f, g, df, dg) => {
+        return new Add(new Multiply(f, dg), new Multiply(df, g));
+    },
+    (f, g) => {
+        if (f.equals(ZERO) || g.equals(ZERO)) {
+            return ZERO;
+        } else if (f.equals(ONE)) {
+            return g;
+        } else if (g.equals(ONE)) {
+            return f;
+        }
+        return f.equals(g) ? new Pow(f, TWO) : new Multiply(f, g);
+    },
+    commutativeEquals,
+    "*"
+);
+
+
+const Divide = operationFactory(
+    () => true,
+    (x, y) => x / y,
+    (f, g, df, dg) => new Divide(new Subtract(new Multiply(df, g), new Multiply(f, dg)), new Multiply(g, g)),
+    (f, g) => {
+        if (f.equals(ZERO)) {
+            return ZERO;
+        } else if (g.equals(ONE)) {
+            return f;
+        } else {
+            let array0 = createArrayOfMultipliers(f);
+            let array1 = createArrayOfMultipliers(g);
+            let simplifiedFlag = false;
+            for (let i = 0; i < array0.length; i++) {
+                let findFlag = false;
+                for (let j = 0; j < array1.length; j++) {
+                    if (array1[j] !== null && array0[i].equals(array1[j])) {
+                        if (findFlag) {
+                            array0[i] = null;
+                            array1[j] = null;
+                            simplifiedFlag = true;
+                            break;
+                        } else {
+                            findFlag = true;
+                        }
+                    }
+                }
+            }
+            return !simplifiedFlag ? new Divide(f, g) : Divide.prototype.simplifyImpl(
+                array0.reduce((acc, cur) => cur !== null ? new Multiply(acc, cur) : acc, ONE).simplify(),
+                array1.reduce((acc, cur) => cur !== null ? new Multiply(acc, cur) : acc, ONE).simplify()
+            );
+        }
+    },
+    nonCommutativeEquals,
+    "/"
+);
+
+
+const Negate = operationFactory(
+    () => true,
+    (x) => -x,
+    (f, df) => new Negate(df),
+    (f) => new Multiply(NEG_ONE, f),
+    nonCommutativeEquals,
+    "negate"
+);
+
+
+const Hypot = operationFactory(
+    () => true,
+    (x, y) => x * x + y * y,
+    (f, g, df, dg) => new Add(Pow.prototype.diffImpl(f, TWO, df), Pow.prototype.diffImpl(g, TWO, dg)),
+    (f, g) => {
+        if (f.equals(ZERO)) {
+            return new Pow(g, TWO);
+        } else if (g.equals(ZERO)) {
+            return new Pow(f, TWO);
+        } else {
+            return new Hypot(f, g);
+        }
+    },
+    commutativeEquals,
+    "hypot"
+);
+
+
+const HMean = operationFactory(
+    () => true,
+    (x, y) => 2 / (1 / x + 1 / y),
+    (f, g, df, dg) => {
+        return new Divide(
+            new Multiply(TWO, new Add(new Multiply(new Pow(g, TWO), df), new Multiply(new Pow(f, TWO), dg))),
+            new Pow(new Add(f, g), TWO)
+        );
+    },
+    (f, g) => {
+        return f.equals(ZERO) || g.equals(ZERO) ? ZERO : new HMean(f, g);
+    },
+    commutativeEquals,
+    "hmean"
+);
+
+
+const Pow = operationFactory(
+    (f, g) => g.constructor === Const,
+    (x, y) => x ** y,
+    (f, g, df) => new Multiply(new Const(g.value), new Multiply(new Pow(f, new Const(g.value - 1)), df)),
+    (f, g) => {
+        if (f.equals(ZERO)) {
+            return ZERO;
+        } else if (g.equals(ZERO)) {
+            return ONE;
+        } else if (g.equals(ONE)) {
+            return f;
+        } else {
+            return new Pow(f, g);
+        }
+    },
+    nonCommutativeEquals,
+    "^"
+);
+
+
+function parse(expression) {
+    const stack = [];
+    for (const word of expression.trim().split(/\s+/)) {
+        if (OPERATIONS.hasOwnProperty(word)) {
+            const op = OPERATIONS[word];
+            stack.push(new op(...stack.splice(-op.prototype.evaluateImpl.length)));
+        } else if (word in ARGUMENT_POSITION) {
+            stack.push(new Variable(word));
+        } else if (word in CONSTANTS) {
+            stack.push(new CONSTANTS[word]);
+        } else {
+            stack.push(new Const(+word));
+        }
+    }
+    return stack.pop();
+}
+
+
+function parsePrefix(expression) {
+    const gen = expression.trim().matchAll(/\(|\)|[^()\s]+/g);
+
+    function parseRec(token) {
+        if (token.done) {
+            throw new ParseError(token, "bracket expression, variable or constant");
+        }
+        if (token.value[0] === '(') {
+            token = gen.next();
+            if (OPERATIONS.hasOwnProperty(token.value[0])) {
+                let args = [];
+                let op = OPERATIONS[token.value[0]];
+                token = gen.next();
+                while (!token.done && token.value[0] !== ')') {
+                    args.push(parseRec(token));
+                    token = gen.next();
+                }
+                if (token.done) {
+                    throw new ParseError(token, ")");
+                }
+                return new op(...args);
+            } else {
+                throw new ParseError(token, "operator");
+            }
+        } else if (ARGUMENT_POSITION.hasOwnProperty(token.value[0])) {
+            return new Variable(token.value[0]);
+        } else {
+            let constant = new Const(+token.value[0]);
+            if (isNaN(constant)) {
+                throw new ParseError(token, "variable or constant");
+            }
+            return constant;
+        }
+    }
+
+    let res = parseRec(gen.next());
+    let token = gen.next();
+    if (!token.done) {
+        throw new ParseError(token, "end of expression");
+    }
+    return res;
+}
+
+
+class ArgumentsError extends Error {
+    constructor(func, ...args) {
+        super(`Invalid arguments of function ${func.name}: ${args}`);
+    }
+}
+
+class ParseError extends Error {
+    constructor(token, expected) {
+        super(`Invalid symbol on positions: ${token.value.index + 1}-${token.value.index + token.value[0].length}\n`
+            + `Expected: ${expected}\nFound: '${token.value[0]}'`
+        );
+    }
+}
+
+
+function createArrayOfMultipliers(expr) {
+    let array = [];
+    if (expr.constructor === Multiply) {
+        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {array.push(elem)});
+        createArrayOfMultipliers(expr.terms[1]).forEach((elem) => {array.push(elem)});
+    } else if (expr.constructor === Pow && Number.isInteger(expr.terms[1].value) && expr.terms[1].value > 0) {
+        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {
+            for (let i = 0; i < expr.terms[1].value; i++) {
+                array.push(elem);
+            }
+        });
+    } else {
+        array.push(expr);
+    }
+    return array;
+}
+
+
 function nonCommutativeEquals(expr) {
     let ind = 0;
-    return this.expressions().reduce((acc, cur) => acc && cur.equals(expr.expressions()[ind++]), true);
+    return this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[ind++]), true);
 }
 
 function commutativeEquals(expr) {
     let res = false;
     for (let p of commutativeEquals.permutationGenerator(this.evaluateImpl.length)) {
         let ind = 0;
-        res ||= this.expressions().reduce((acc, cur) => acc && cur.equals(expr.expressions()[p[ind++]]), true);
+        res ||= this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[p[ind++]]), true);
     }
     return res;
 }
@@ -49,399 +442,10 @@ commutativeEquals.permutationGenerator.swap = function (array, i, j) {
 }
 
 
-const AbstractExpressionPrototype = {
-    equals: function (expression) {
-        return expression.constructor === this.constructor && this.equalsImpl(expression);
-    }
-}
-
-function ExpressionFactory(Expression, evaluate, diff, simplify, toString, prefix, equalsImpl) {
-    Expression.prototype = Object.create(AbstractExpressionPrototype);
-    Expression.prototype.constructor = Expression;
-    Expression.prototype.evaluate = evaluate;
-    Expression.prototype.diff = diff;
-    Expression.prototype.simplify = simplify;
-    Expression.prototype.toString = toString;
-    Expression.prototype.prefix = prefix;
-    Expression.prototype.equalsImpl = equalsImpl;
-    return Expression;
-}
-
-function OperationFactory(evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
-    function Operation(...expressions) {
-        AbstractOperation.call(this, ...expressions);
-    }
-
-    Operation.prototype = Object.create(AbstractOperation.prototype);
-    Operation.prototype.constructor = Operation;
-    Operation.prototype.evaluateImpl = evaluateImpl;
-    Operation.prototype.diffImpl = diffImpl;
-    Operation.prototype.simplifyImpl = simplifyImpl;
-    Operation.prototype.equalsImpl = equalsImpl;
-    Operation.prototype.operator = operators[0];
-    for (let operator of operators)
-        OPERATIONS[operator] = Operation;
-    return Operation;
-}
-
-
-const Const = ExpressionFactory(
-    function (value) {
-        this.value = () => value;
-    },
-    function () {
-        return this.value();
-    },
-    () => ZERO,
-    function () {
-        return this;
-    },
-    function () {
-        return this.value().toString();
-    },
-    function () {
-        return this.value().toString();
-    },
-    function (expression) {
-        return expression.value() === this.value();
-    }
-);
-const ZERO = new Const(0);
-const ONE = new Const(1);
-const NEG_ONE = new Const(-1);
-const TWO = new Const(2);
-
-
-const Variable = ExpressionFactory(
-    function (name) {
-        this.arg_pos = () => ARGUMENT_POSITION[name];
-        this.name = () => name;
-    },
-    function (...args) {
-        return args[this.arg_pos()];
-    },
-    function (var_name) {
-        return this.name() === var_name ? ONE : ZERO;
-    },
-    function () {
-        return this;
-    },
-    function () {
-        return this.name();
-    },
-    function () {
-        return this.name();
-    },
-    function (expression) {
-        return expression.name() === this.name();
-    }
-);
-
-
-const AbstractOperation = ExpressionFactory(
-    function (...expressions) {
-        this.expressions = () => expressions;
-    },
-    function (...args) {
-        return this.evaluateImpl(...this.expressions().map(expr => expr.evaluate(...args)));
-    },
-    function (varName) {
-        return this.diffImpl(...this.expressions(), ...this.expressions().map(expr => expr.diff(varName)));
-    },
-    function () {
-        let simples = this.expressions().map(expr => expr.simplify());
-        for (let simple of simples) {
-            if (simple.constructor !== Const) {
-                return this.simplifyImpl(...simples);
-            }
-        }
-        return new Const(this.evaluateImpl(...simples.map(expr => expr.value())));
-    },
-    function () {
-        return String.prototype.concat(...this.expressions().map(expr => `${expr.toString()} `), this.operator);
-    },
-    function () {
-        return String.prototype.concat('(', this.operator, ...this.expressions().map(expr => ` ${expr.prefix()}`), ')');
-    }
-);
-
-
-const Add = OperationFactory(
-    (x, y) => x + y,
-    (f, g, df, dg) => new Add(df, dg),
-    (f, g) => {
-        if (f.equals(ZERO)) {
-            return g;
-        } else if (g.equals(ZERO)) {
-            return f;
-        } else {
-            return new Add(f, g);
-        }
-    },
-    commutativeEquals,
-    "+"
-);
-
-
-const Subtract = OperationFactory(
-    (x, y) => x - y,
-    (f, g, df, dg) => new Subtract(df, dg),
-    (f, g) => {
-        if (f.equals(ZERO)) {
-            return new Multiply(NEG_ONE, g);
-        } else if (g.equals(ZERO)) {
-            return f;
-        } else {
-            return new Subtract(f, g);
-        }
-    },
-    nonCommutativeEquals,
-    "-"
-);
-
-
-const Multiply = OperationFactory(
-    (x, y) => x * y,
-    (f, g, df, dg) => {
-        return new Add(new Multiply(f, dg), new Multiply(df, g));
-    },
-    (f, g) => {
-        if (f.equals(ZERO) || g.equals(ZERO)) {
-            return ZERO;
-        } else if (f.equals(ONE)) {
-            return g;
-        } else if (g.equals(ONE)) {
-            return f;
-        }
-        return f.equals(g) ? new Pow(f, TWO) : new Multiply(f, g);
-    },
-    commutativeEquals,
-    "*"
-);
-
-
-function createArrayOfMultipliers(expr, array) {
-    if (expr.constructor === Multiply) {
-        createArrayOfMultipliers(expr.expressions()[0], array);
-        createArrayOfMultipliers(expr.expressions()[1], array);
-    } else if (expr.constructor === Pow && expr.expressions()[1].equals(TWO)) {
-        createArrayOfMultipliers(expr.expressions()[0], array);
-        createArrayOfMultipliers(expr.expressions()[0], array);
-    } else {
-        array.push(expr);
-    }
-    return array;
-}
-
-const Divide = OperationFactory(
-    (x, y) => x / y,
-    (f, g, df, dg) => new Divide(new Subtract(new Multiply(df, g), new Multiply(f, dg)), new Multiply(g, g)),
-    (f, g) => {
-        if (f.equals(ZERO)) {
-            return ZERO;
-        } else if (g.equals(ONE)) {
-            return f;
-        } else {
-            let array0 = createArrayOfMultipliers(f, []);
-            let array1 = createArrayOfMultipliers(g, []);
-            let simplifiedFlag = false;
-            for (let i = 0; i < array0.length; i++) {
-                let findFlag = false;
-                for (let j = 0; j < array1.length; j++) {
-                    if (array1[j] !== null && array0[i].equals(array1[j])) {
-                        if (findFlag) {
-                            array0[i] = null;
-                            array1[j] = null;
-                            simplifiedFlag = true;
-                            break;
-                        } else {
-                            findFlag = true;
-                        }
-                    }
-                }
-            }
-            return !simplifiedFlag ? new Divide(f, g) : Divide.prototype.simplifyImpl(
-                array0.reduce((acc, cur) => cur !== null ? new Multiply(acc, cur) : acc, ONE).simplify(),
-                array1.reduce((acc, cur) => cur !== null ? new Multiply(acc, cur) : acc, ONE).simplify()
-            );
-        }
-    },
-    nonCommutativeEquals,
-    "/"
-);
-
-
-const Negate = OperationFactory(
-    (x) => -x,
-    (f, df) => new Negate(df),
-    (f) => new Multiply(NEG_ONE, f),
-    nonCommutativeEquals,
-    "negate"
-);
-
-
-const Hypot = OperationFactory(
-    (x, y) => x * x + y * y,
-    (f, g, df, dg) => new Add(Pow.prototype.diffImpl(f, TWO, df, ZERO), Pow.prototype.diffImpl(g, TWO, dg, ZERO)),
-    (f, g) => {
-        if (f.equals(ZERO)) {
-            return new Pow(g, TWO);
-        } else if (g.equals(ZERO)) {
-            return new Pow(f, TWO);
-        } else {
-            return new Hypot(f, g);
-        }
-    },
-    commutativeEquals,
-    "hypot"
-);
-
-
-const HMean = OperationFactory(
-    (x, y) => 2 / (1 / x + 1 / y),
-    (f, g, df, dg) => {
-        return new Divide(
-            new Multiply(TWO, new Add(new Multiply(new Pow(g, TWO), df), new Multiply(new Pow(f, TWO), dg))),
-            new Pow(new Add(f, g), TWO)
-        );
-    },
-    (f, g) => {
-        return Const.prototype.equals.call(ZERO, f) || Const.prototype.equals.call(ZERO, g) ? ZERO : new HMean(f, g);
-    },
-    commutativeEquals,
-    "hmean"
-);
-
-
-const Pow = OperationFactory(
-    (x, y) => x ** y,
-    (f, g, df, dg) => {
-        if (g.constructor === Const) {
-            return new Multiply(new Const(g.value()), new Multiply(new Pow(f, new Const(g.value() - 1)), df));
-        } else if (f.constructor === Const) {
-            return new Multiply(new Const(Math.log(f.value())), new Multiply(new Pow(f, g), dg));
-        } else {
-            return new Multiply(
-                new Pow(f, g),
-                Multiply.prototype.diffImpl(g, new Log(f), dg, Log.prototype.diffImpl(f, df))
-            );
-        }
-    },
-    (f, g) => {
-        if (f.equals(ZERO)) {
-            return ZERO;
-        } else if (g.equals(ZERO)) {
-            return ONE;
-        } else if (g.equals(ONE)) {
-            return f;
-        } else {
-            return new Pow(f, g);
-        }
-    },
-    nonCommutativeEquals,
-    "^"
-);
-
-
-const Log = OperationFactory(
-    Math.log,
-    (f, df) => new Divide(df, f),
-    (f) => new Log(f),
-    nonCommutativeEquals,
-    "log"
-);
-
-
-function parse(expression) {
-    const stack = [];
-    for (const word of expression.trim().split(/\s+/)) {
-        if (OPERATIONS.hasOwnProperty(word)) {
-            const op = OPERATIONS[word];
-            stack.push(new op(...stack.splice(-op.prototype.evaluateImpl.length)));
-        } else if (word in ARGUMENT_POSITION) {
-            stack.push(new Variable(word));
-        } else if (word in CONSTANTS) {
-            stack.push(new CONSTANTS[word]);
-        } else {
-            stack.push(new Const(+word));
-        }
-    }
-    return stack.pop();
-}
-
-
-function parsePrefix(expression) {
-    const gen = parsePrefix.tokenGenerator(expression);
-
-    function parseRec() {
-        let token = gen.next();
-        if (token.done) {
-            throw new ParseError(token, "bracket expression, variable or constant");
-        }
-        if (token.value.word === '(') {
-            token = gen.next();
-            if (OPERATIONS.hasOwnProperty(token.value.word)) {
-                let args = [];
-                let op = OPERATIONS[token.value.word];
-                while (args.length !== op.prototype.evaluateImpl.length) {
-                    args.push(parseRec());
-                }
-                token = gen.next();
-                if (token.done || token.value.word !== ')') {
-                    throw new ParseError(token, ")");
-                }
-                return new op(...args);
-            } else {
-                throw new ParseError(token, "operator");
-            }
-        } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
-            return new Variable(token.value.word);
-        } else {
-            let constant = new Const(+token.value.word);
-            if (isNaN(constant)) {
-                throw new ParseError(token, "variable or constant");
-            }
-            return constant;
-        }
-    }
-
-    let res = parseRec();
-    let token = gen.next();
-    if (!token.done) {
-        throw new ParseError(token, "end of string");
-    }
-    return res;
-}
-
-parsePrefix.tokenGenerator = function* (expression) {
-    let i = 0;
-    while (true) {
-        for (; i < expression.length && /^\s$/.test(expression[i]); i++) ;
-        if (i === expression.length) {
-            return {word: '', begin: i, end: i};
-        }
-        if (expression[i] === '(' || expression[i] === ')') {
-            yield {word: expression[i], begin: ++i, end: i};
-            continue;
-        }
-        let i0 = i;
-        for (; i < expression.length && !/^\s|\(|\)$/.test(expression[i]); i++) ;
-        yield {word: expression.slice(i0, i), begin: i0 + 1, end: i};
-    }
-}
-
-function ParseError(token, expected) {
-    this.beginPos = token.value.begin;
-    this.endPos = token.value.end;
-    this.message = `Invalid symbol on position: ${this.beginPos}-${this.endPos}\n`;
-    this.message += `Expected: ${expected}\nFound: '${token.value.word}'`;
-}
-
-ParseError.prototype = Object.create(Error.prototype);
-ParseError.prototype.constructor = ParseError;
-ParseError.prototype.name = "ParseError";
-
-
+// println(parsePrefix("(/ (* (* y y) (^ x 5)) (* (^ y 3) (^ x 8)))").simplify().prefix())
+// println(parsePrefix("(+ x 2))"))
+// println(Object.getPrototypeOf(ParseError.prototype) === Error.prototype);
+// println(parsePrefix("(^ x (+ y z) x)"))
 // println(parsePrefix("(^ 3 (+ x y))").diff('x').prefix())
 // println(0 ** 2)
 // println(new Log(new Subtract(new Variable('y'), new Variable('z'))).evaluate(2.0, 2.0, 2.0))
