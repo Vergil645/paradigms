@@ -20,15 +20,22 @@ const expressionFactory = (function () {
             return expr.constructor === this.constructor && this.equalsImpl(expr);
         }
     }
-    return function (name, Constructor, isCorrectArguments, evaluate, diff, equalsImpl) {
-        Constructor.prototype = Object.create(AbstractExpressionPrototype);
-        Constructor.prototype.constructor = Constructor;
-        Object.defineProperty(Constructor, "name", {value: name});
-        Constructor.prototype.isCorrectArguments = isCorrectArguments;
-        Constructor.prototype.evaluate = evaluate;
-        Constructor.prototype.diff = diff;
-        Constructor.prototype.equalsImpl = equalsImpl;
-        return Constructor;
+    return function (name, init, isCorrectArguments, evaluate, diff, equalsImpl) {
+        function Expression(...args) {
+            if (!this.isCorrectArguments(args)) {
+                throw new ArgumentsError(this.constructor.name, ...args);
+            }
+            init.call(this, ...args);
+        }
+
+        Expression.prototype = Object.create(AbstractExpressionPrototype);
+        Expression.prototype.constructor = Expression;
+        Object.defineProperty(Expression, "name", {value: name});
+        Expression.prototype.isCorrectArguments = isCorrectArguments;
+        Expression.prototype.evaluate = evaluate;
+        Expression.prototype.diff = diff;
+        Expression.prototype.equalsImpl = equalsImpl;
+        return Expression;
     }
 })();
 
@@ -93,9 +100,6 @@ const operationFactory = (function () {
 const Const = expressionFactory(
     "Const",
     function (value) {
-        if (!this.isCorrectArguments(value)) {
-            throw new ArgumentsError(this.constructor.name, value);
-        }
         Object.defineProperty(this, "value", {value: value});
     },
     (value) => !isNaN(value),
@@ -117,13 +121,10 @@ const TWO = new Const(2);
 const Variable = expressionFactory(
     "Variable",
     function (value) {
-        if (!this.isCorrectArguments(value)) {
-            throw new ArgumentsError(this.constructor.name, value);
-        }
         Object.defineProperty(this, "argPos", {value: ARGUMENT_POSITION[value]});
         Object.defineProperty(this, "value", {value: value});
     },
-    (name) => typeof name === "string",
+    (name) => ARGUMENT_POSITION.hasOwnProperty(name),
     function (...args) {
         return args[this.argPos];
     },
