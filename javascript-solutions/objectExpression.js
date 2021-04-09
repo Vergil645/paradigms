@@ -10,19 +10,23 @@ const expressionFactory = (function () {
         simplify: function () {
             return this;
         },
+        toString: function () {
+            return this.value.toString();
+        },
+        prefix: function () {
+            return this.value.toString();
+        },
         equals: function (expr) {
             return expr.constructor === this.constructor && this.equalsImpl(expr);
         }
     }
-    return function (name, Constructor, isCorrectArguments, evaluate, diff, toString, prefix, equalsImpl) {
+    return function (name, Constructor, isCorrectArguments, evaluate, diff, equalsImpl) {
         Constructor.prototype = Object.create(AbstractExpressionPrototype);
         Constructor.prototype.constructor = Constructor;
         Object.defineProperty(Constructor, "name", {value: name});
         Constructor.prototype.isCorrectArguments = isCorrectArguments;
         Constructor.prototype.evaluate = evaluate;
         Constructor.prototype.diff = diff;
-        Constructor.prototype.toString = toString;
-        Constructor.prototype.prefix = prefix;
         Constructor.prototype.equalsImpl = equalsImpl;
         return Constructor;
     }
@@ -30,46 +34,46 @@ const expressionFactory = (function () {
 
 
 const operationFactory = (function () {
-    const AbstractOperation = expressionFactory(
-        "AbstractOperation",
-        function (...terms) {
+    const AbstractOperation = {
+        name: "AbstractOperation",
+        isCorrectArguments: function (...terms) {
+            return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
+                && this.isCorrectArgumentsImpl(...terms);
+        },
+        evaluate: function (...args) {
+            return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
+        },
+        diff: function (varName) {
+            return this.diffImpl(...this.terms, ...this.terms.map(term => term.diff(varName)));
+        },
+        toString: function () {
+            return String.prototype.concat(...this.terms.map(term => `${term.toString()} `), this.operator);
+        },
+        prefix: function () {
+            return String.prototype.concat('(', this.operator, ...this.terms.map(term => ` ${term.prefix()}`), ')');
+        },
+        simplify: function () {
+            let simples = this.terms.map(expr => expr.simplify());
+            for (let simple of simples) {
+                if (simple.constructor !== Const) {
+                    return this.simplifyImpl(...simples);
+                }
+            }
+            return new Const(this.evaluateImpl(...simples.map(term => term.value)));
+        },
+        equals: function (expr) {
+            return expr.constructor === this.constructor && this.equalsImpl(expr);
+        }
+    }
+    return function (name, isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
+        function OperationConstructor(...terms) {
             if (!this.isCorrectArguments(...terms)) {
                 throw new ArgumentsError(this.constructor.name, ...terms);
             }
             Object.defineProperty(this, "terms", {value: terms});
-        },
-        function (...terms) {
-            return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
-                && this.isCorrectArgumentsImpl(...terms);
-        },
-        function (...args) {
-            return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
-        },
-        function (varName) {
-            return this.diffImpl(...this.terms, ...this.terms.map(term => term.diff(varName)));
-        },
-        function () {
-            return String.prototype.concat(...this.terms.map(term => `${term.toString()} `), this.operator);
-        },
-        function () {
-            return String.prototype.concat('(', this.operator, ...this.terms.map(term => ` ${term.prefix()}`), ')');
-        }
-    );
-    AbstractOperation.prototype.simplify = function () {
-        let simples = this.terms.map(expr => expr.simplify());
-        for (let simple of simples) {
-            if (simple.constructor !== Const) {
-                return this.simplifyImpl(...simples);
-            }
-        }
-        return new Const(this.evaluateImpl(...simples.map(term => term.value)));
-    }
-    return function (name, isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
-        function OperationConstructor(...terms) {
-            AbstractOperation.call(this, ...terms);
         }
 
-        OperationConstructor.prototype = Object.create(AbstractOperation.prototype);
+        OperationConstructor.prototype = Object.create(AbstractOperation);
         OperationConstructor.prototype.constructor = OperationConstructor;
         Object.defineProperty(OperationConstructor, "name", {value: name});
         OperationConstructor.prototype.isCorrectArgumentsImpl = isCorrectTermsImpl;
@@ -99,12 +103,6 @@ const Const = expressionFactory(
         return this.value;
     },
     () => ZERO,
-    function () {
-        return this.value.toString();
-    },
-    function () {
-        return this.value.toString();
-    },
     function (expr) {
         return expr.value === this.value;
     }
@@ -118,28 +116,22 @@ const TWO = new Const(2);
 
 const Variable = expressionFactory(
     "Variable",
-    function (name) {
-        if (!this.isCorrectArguments(name)) {
-            throw new ArgumentsError(this.constructor.name, name);
+    function (value) {
+        if (!this.isCorrectArguments(value)) {
+            throw new ArgumentsError(this.constructor.name, value);
         }
-        Object.defineProperty(this, "argPos", {value: ARGUMENT_POSITION[name]});
-        Object.defineProperty(this, "name", {value: name});
+        Object.defineProperty(this, "argPos", {value: ARGUMENT_POSITION[value]});
+        Object.defineProperty(this, "value", {value: value});
     },
     (name) => typeof name === "string",
     function (...args) {
         return args[this.argPos];
     },
     function (varName) {
-        return this.name === varName ? ONE : ZERO;
-    },
-    function () {
-        return this.name;
-    },
-    function () {
-        return this.name;
+        return this.value === varName ? ONE : ZERO;
     },
     function (expr) {
-        return expr.name === this.name;
+        return expr.value === this.value;
     }
 );
 
