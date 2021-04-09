@@ -11,9 +11,10 @@ const AbstractExpressionPrototype = {
     }
 }
 
-function expressionFactory(Constructor, isCorrectArguments, evaluate, diff, simplify, toString, prefix, equalsImpl) {
+function expressionFactory(name, Constructor, isCorrectArguments, evaluate, diff, simplify, toString, prefix, equalsImpl) {
     Constructor.prototype = Object.create(AbstractExpressionPrototype);
     Constructor.prototype.constructor = Constructor;
+    Constructor.prototype.name = name;
     Constructor.prototype.isCorrectArguments = isCorrectArguments;
     Constructor.prototype.evaluate = evaluate;
     Constructor.prototype.diff = diff;
@@ -26,9 +27,10 @@ function expressionFactory(Constructor, isCorrectArguments, evaluate, diff, simp
 
 
 const Const = expressionFactory(
+    "Const",
     function (value) {
         if (!this.isCorrectArguments(value)) {
-            throw new ArgumentsError(Const, value);
+            throw new ArgumentsError(this.name, value);
         }
         Object.defineProperty(this, "value", {value: value});
     },
@@ -58,9 +60,10 @@ const TWO = new Const(2);
 
 
 const Variable = expressionFactory(
+    "Variable",
     function (name) {
         if (!this.isCorrectArguments(name)) {
-            throw new ArgumentsError(Variable, name);
+            throw new ArgumentsError(this.name, name);
         }
         Object.defineProperty(this, "argPos", {value: ARGUMENT_POSITION[name]});
         Object.defineProperty(this, "name", {value: name});
@@ -88,9 +91,10 @@ const Variable = expressionFactory(
 
 
 const AbstractOperation = expressionFactory(
+    "AbstractOperation",
     function (...terms) {
         if (!this.isCorrectArguments(...terms)) {
-            throw new ArgumentsError(this.constructor, ...terms);
+            throw new ArgumentsError(this.name, ...terms);
         }
         Object.defineProperty(this, "terms", {value: terms});
     },
@@ -122,13 +126,14 @@ const AbstractOperation = expressionFactory(
 );
 
 
-function operationFactory(isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
+function operationFactory(name, isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
     function OperationConstructor(...terms) {
         AbstractOperation.call(this, ...terms);
     }
 
     OperationConstructor.prototype = Object.create(AbstractOperation.prototype);
     OperationConstructor.prototype.constructor = OperationConstructor;
+    OperationConstructor.prototype.name = name;
     OperationConstructor.prototype.isCorrectArgumentsImpl = isCorrectTermsImpl;
     OperationConstructor.prototype.evaluateImpl = evaluateImpl;
     OperationConstructor.prototype.diffImpl = diffImpl;
@@ -143,6 +148,7 @@ function operationFactory(isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyIm
 
 
 const Add = operationFactory(
+    "Add",
     () => true,
     (x, y) => x + y,
     (f, g, df, dg) => new Add(df, dg),
@@ -161,6 +167,7 @@ const Add = operationFactory(
 
 
 const Subtract = operationFactory(
+    "Subtract",
     () => true,
     (x, y) => x - y,
     (f, g, df, dg) => new Subtract(df, dg),
@@ -179,6 +186,7 @@ const Subtract = operationFactory(
 
 
 const Multiply = operationFactory(
+    "Multiply",
     () => true,
     (x, y) => x * y,
     (f, g, df, dg) => {
@@ -200,6 +208,7 @@ const Multiply = operationFactory(
 
 
 const Divide = operationFactory(
+    "Divide",
     () => true,
     (x, y) => x / y,
     (f, g, df, dg) => new Divide(new Subtract(new Multiply(df, g), new Multiply(f, dg)), new Multiply(g, g)),
@@ -239,6 +248,7 @@ const Divide = operationFactory(
 
 
 const Negate = operationFactory(
+    "Negate",
     () => true,
     (x) => -x,
     (f, df) => new Negate(df),
@@ -249,6 +259,7 @@ const Negate = operationFactory(
 
 
 const Hypot = operationFactory(
+    "Hypot",
     () => true,
     (x, y) => x * x + y * y,
     (f, g, df, dg) => new Add(Pow.prototype.diffImpl(f, TWO, df), Pow.prototype.diffImpl(g, TWO, dg)),
@@ -267,6 +278,7 @@ const Hypot = operationFactory(
 
 
 const HMean = operationFactory(
+    "HMean",
     () => true,
     (x, y) => 2 / (1 / x + 1 / y),
     (f, g, df, dg) => {
@@ -284,6 +296,7 @@ const HMean = operationFactory(
 
 
 const Pow = operationFactory(
+    "Pow",
     (f, g) => g.constructor === Const,
     (x, y) => x ** y,
     (f, g, df) => new Multiply(new Const(g.value), new Multiply(new Pow(f, new Const(g.value - 1)), df)),
@@ -322,11 +335,14 @@ function parse(expression) {
 
 
 function parsePrefix(expression) {
+    if (expression.length === 0) {
+        throw new ParseError(0, '', "bracket expression, variable or constant");
+    }
     const gen = expression.trim().matchAll(/\(|\)|[^()\s]+/g);
 
     function parseRec(token) {
         if (token.done) {
-            throw new ParseError(token, "bracket expression, variable or constant");
+            throw new ParseError(expression.trim.length, '', "bracket expression, variable or constant");
         }
         if (token.value[0] === '(') {
             token = gen.next();
@@ -339,11 +355,11 @@ function parsePrefix(expression) {
                     token = gen.next();
                 }
                 if (token.done) {
-                    throw new ParseError(token, ")");
+                    throw new ParseError(expression.trim().length, '', ')');
                 }
                 return new op(...args);
             } else {
-                throw new ParseError(token, "operator");
+                throw new ParseError(token.value.index, token.value[0], "operator");
             }
         } else if (ARGUMENT_POSITION.hasOwnProperty(token.value[0])) {
             return new Variable(token.value[0]);
@@ -351,7 +367,7 @@ function parsePrefix(expression) {
             try {
                 return new Const(+token.value[0]);
             } catch (e) {
-                throw new ParseError(token, "variable or constant");
+                throw new ParseError(token.value.index, token.value[0], "variable or constant");
             }
         }
     }
@@ -359,25 +375,28 @@ function parsePrefix(expression) {
     let res = parseRec(gen.next());
     let token = gen.next();
     if (!token.done) {
-        throw new ParseError(token, "end of expression");
+        throw new ParseError(token.value.index, token.value[0], "end of expression");
     }
     return res;
 }
 
 
-class ArgumentsError extends Error {
-    constructor(func, ...args) {
-        super(`Invalid arguments of function ${func.name}: ${args}`);
-    }
+function ArgumentsError(funcName, ...args) {
+    this.message = `Invalid arguments of function ${funcName}: ${args}`;
 }
 
-class ParseError extends Error {
-    constructor(token, expected) {
-        super(`Invalid symbol on positions: ${token.value.index + 1}-${token.value.index + token.value[0].length}\n`
-            + `Expected: ${expected}\nFound: '${token.value[0]}'`
-        );
-    }
+ArgumentsError.prototype = Object.create(Error.prototype);
+ArgumentsError.prototype.constructor = ArgumentsError;
+ArgumentsError.prototype.name = "ArgumentsError";
+
+function ParseError(begin, word, expected) {
+    this.message = `Invalid symbol on positions: ${begin + 1}-${begin + Math.max(1, word.length)}\n`
+        + `Expected: ${expected}\nFound: '${word}'`;
 }
+
+ParseError.prototype = Object.create(Error.prototype);
+ParseError.prototype.constructor = ParseError;
+ParseError.prototype.name = "ParseError";
 
 
 function createArrayOfMultipliers(expr) {
@@ -446,6 +465,11 @@ commutativeEquals.permutationGenerator.swap = function (array, i, j) {
 }
 
 
+// println(new Variable('x').constructor === new Const(1).constructor)
+// println(new Add(ONE, TWO).constructor === new Add(ONE, TWO).constructor)
+// println(Const.prototype.constructor);
+// println(Variable.prototype.name);
+// println(Add.prototype.constructor === Multiply.prototype.constructor);
 // println(parsePrefix("(/ (* (* y y) (^ x 5)) (* (^ y 3) (^ x 8)))").simplify().prefix())
 // println(parsePrefix("(+ x 2))"))
 // println(Object.getPrototypeOf(ParseError.prototype) === Error.prototype);
