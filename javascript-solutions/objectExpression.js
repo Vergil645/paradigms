@@ -382,20 +382,21 @@ function parsePrefix(expression) {
 }
 
 
+function errorPrototypeFactory(Constructor) {
+    Constructor.prototype = Object.create(Error.prototype);
+    Constructor.prototype.constructor = Constructor;
+}
+
 function ArgumentsError(funcName, ...args) {
     this.message = `Invalid arguments of function ${funcName}: ${args}`;
 }
-
-ArgumentsError.prototype = Object.create(Error.prototype);
-ArgumentsError.prototype.constructor = ArgumentsError;
+errorPrototypeFactory(ArgumentsError);
 
 function ParseError(begin, word, expected) {
     this.message = `Invalid symbol on positions: ${begin + 1}-${begin + Math.max(1, word.length)}\n`
         + `Expected: ${expected}\nFound: '${word}'`;
 }
-
-ParseError.prototype = Object.create(Error.prototype);
-ParseError.prototype.constructor = ParseError;
+errorPrototypeFactory(ParseError);
 
 
 function createArrayOfMultipliers(expr) {
