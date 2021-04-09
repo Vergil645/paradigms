@@ -7,18 +7,20 @@ const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
 const expressionFactory = (function () {
     const AbstractExpressionPrototype = {
+        simplify: function () {
+            return this;
+        },
         equals: function (expr) {
             return expr.constructor === this.constructor && this.equalsImpl(expr);
         }
     }
-    return function (name, Constructor, isCorrectArguments, evaluate, diff, simplify, toString, prefix, equalsImpl) {
+    return function (name, Constructor, isCorrectArguments, evaluate, diff, toString, prefix, equalsImpl) {
         Constructor.prototype = Object.create(AbstractExpressionPrototype);
         Constructor.prototype.constructor = Constructor;
         Object.defineProperty(Constructor, "name", {value: name});
         Constructor.prototype.isCorrectArguments = isCorrectArguments;
         Constructor.prototype.evaluate = evaluate;
         Constructor.prototype.diff = diff;
-        Constructor.prototype.simplify = simplify;
         Constructor.prototype.toString = toString;
         Constructor.prototype.prefix = prefix;
         Constructor.prototype.equalsImpl = equalsImpl;
@@ -47,21 +49,21 @@ const operationFactory = (function () {
             return this.diffImpl(...this.terms, ...this.terms.map(term => term.diff(varName)));
         },
         function () {
-            let simples = this.terms.map(expr => expr.simplify());
-            for (let simple of simples) {
-                if (simple.constructor !== Const) {
-                    return this.simplifyImpl(...simples);
-                }
-            }
-            return new Const(this.evaluateImpl(...simples.map(term => term.value)));
-        },
-        function () {
             return String.prototype.concat(...this.terms.map(term => `${term.toString()} `), this.operator);
         },
         function () {
             return String.prototype.concat('(', this.operator, ...this.terms.map(term => ` ${term.prefix()}`), ')');
         }
     );
+    AbstractOperation.prototype.simplify = function () {
+        let simples = this.terms.map(expr => expr.simplify());
+        for (let simple of simples) {
+            if (simple.constructor !== Const) {
+                return this.simplifyImpl(...simples);
+            }
+        }
+        return new Const(this.evaluateImpl(...simples.map(term => term.value)));
+    }
     return function (name, isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl, ...operators) {
         function OperationConstructor(...terms) {
             AbstractOperation.call(this, ...terms);
@@ -98,9 +100,6 @@ const Const = expressionFactory(
     },
     () => ZERO,
     function () {
-        return this;
-    },
-    function () {
         return this.value.toString();
     },
     function () {
@@ -132,9 +131,6 @@ const Variable = expressionFactory(
     },
     function (varName) {
         return this.name === varName ? ONE : ZERO;
-    },
-    function () {
-        return this;
     },
     function () {
         return this.name;
@@ -390,12 +386,14 @@ function errorPrototypeFactory(Constructor) {
 function ArgumentsError(funcName, ...args) {
     this.message = `Invalid arguments of function ${funcName}: ${args}`;
 }
+
 errorPrototypeFactory(ArgumentsError);
 
 function ParseError(begin, word, expected) {
     this.message = `Invalid symbol on positions: ${begin + 1}-${begin + Math.max(1, word.length)}\n`
         + `Expected: ${expected}\nFound: '${word}'`;
 }
+
 errorPrototypeFactory(ParseError);
 
 
