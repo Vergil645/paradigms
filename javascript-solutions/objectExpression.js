@@ -387,7 +387,6 @@ function ArgumentsError(funcName, ...args) {
 
 ArgumentsError.prototype = Object.create(Error.prototype);
 ArgumentsError.prototype.constructor = ArgumentsError;
-ArgumentsError.prototype.name = "ArgumentsError";
 
 function ParseError(begin, word, expected) {
     this.message = `Invalid symbol on positions: ${begin + 1}-${begin + Math.max(1, word.length)}\n`
@@ -396,7 +395,6 @@ function ParseError(begin, word, expected) {
 
 ParseError.prototype = Object.create(Error.prototype);
 ParseError.prototype.constructor = ParseError;
-ParseError.prototype.name = "ParseError";
 
 
 function createArrayOfMultipliers(expr) {
@@ -408,11 +406,10 @@ function createArrayOfMultipliers(expr) {
         createArrayOfMultipliers(expr.terms[1]).forEach((elem) => {
             array.push(elem)
         });
-    } else if (expr.constructor === Pow && Number.isInteger(expr.terms[1].value) && expr.terms[1].value > 0) {
+    } else if (expr.constructor === Pow && expr.terms[1].value === 2) {
         createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {
-            for (let i = 0; i < expr.terms[1].value; i++) {
-                array.push(elem);
-            }
+            array.push(elem);
+            array.push(elem);
         });
     } else {
         array.push(expr);
@@ -463,43 +460,3 @@ commutativeEquals.permutationGenerator.swap = function (array, i, j) {
     array[j] = array[i];
     array[i] = tmp;
 }
-
-
-// println(new Variable('x').constructor === new Const(1).constructor)
-// println(new Add(ONE, TWO).constructor === new Add(ONE, TWO).constructor)
-// println(Const.prototype.constructor);
-// println(Variable.prototype.name);
-// println(Add.prototype.constructor === Multiply.prototype.constructor);
-// println(parsePrefix("(/ (* (* y y) (^ x 5)) (* (^ y 3) (^ x 8)))").simplify().prefix())
-// println(parsePrefix("(+ x 2))"))
-// println(Object.getPrototypeOf(ParseError.prototype) === Error.prototype);
-// println(parsePrefix("(^ x (+ y z) x)"))
-// println(parsePrefix("(^ 3 (+ x y))").diff('x').prefix())
-// println(0 ** 2)
-// println(new Log(new Subtract(new Variable('y'), new Variable('z'))).evaluate(2.0, 2.0, 2.0))
-// println(new Hypot(new Variable('x'), new Subtract(new Variable('y'), new Variable('z'))).diff('x').prefix())
-// println(new Hypot(new Variable('x'), new Subtract(new Variable('y'), new Variable('z'))).diff('x').evaluate(2.0, 2.0, 2.0))
-// println(parsePrefix("(log x)").diff('x').prefix())
-// println(parsePrefix("(^ x 2)").diff('x').prefix())
-// println(parsePrefix("(/ (* (* x y) (* x x)) (* (* y z) (* x x)))").simplify().prefix())
-
-// const T = OperationFactory(
-//     (x, y, z) => x + y + z,
-//     undefined,
-//     undefined,
-//     commutativeEquals,
-//     ""
-// )
-// println(new T(new Add(ZERO, ONE), ONE, TWO).equals(new T(TWO, ONE, new Add(ONE, ZERO))))
-
-// println(new Add(Const.ZERO, Const.ZERO).constructor === Add)
-// println(parse('x y z * /').diff('x').simplify().prefix())
-// println(parse('x y z - hypot').diff('z').simplify());
-// (/ (* (* 2 y) y) (* (+ x y) (+ x y)))
-// (/ 2 (* (+ (/ x y) 1) (+ (/ x y) 1)))
-// (* 2 (* (/ y (+ x y)) (/ y (+ x y))))
-// println(parse('x y hmean').diff('x').simplify().prefix());
-// println(parse('5 z /').diff('z').expressions[0].simplify());
-// println(parse('5 z /').diff('z').expressions[1].simplify());
-// println(parse('5 z /').diff('z').simplify());
-// println(parsePrefix("(/ (negate x) 2)"));
