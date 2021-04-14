@@ -6,38 +6,36 @@ const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
 
 
 const expressionFactory = (function () {
-    const AbstractExpressionPrototype = {
+    const abstractExpression = {
         simplify: function () { return this; },
-        toString: function () { return this.value.toString(); },
-        prefix: function () { return this.value.toString(); },
-        postfix: function () { return this.value.toString(); },
-        equals: function (expr) { return expr.constructor === this.constructor && this.equalsImpl(expr); }
+        equals: function (expr) { return this.constructor === expr.constructor && expr.value === this.value; }
     }
-    return function (name, init, isCorrectArguments, evaluate, diff, equalsImpl) {
-        function Expression(...args) {
-            if (!this.isCorrectArguments(args)) {
-                throw new ArgumentsError(this.constructor.name, ...args);
+    abstractExpression.toString = abstractExpression.prefix = abstractExpression.postfix = function () {
+        return this.value.toString();
+    }
+    return function (name, init, isCorrectArguments, evaluate, diff) {
+        function Expression(...items) {
+            if (!this.isCorrectArguments(items)) {
+                throw new ArgumentsError(this.constructor.name, ...items);
             }
-            init(this, ...args);
+            init(this, ...items);
         }
-        Expression.prototype = Object.create(AbstractExpressionPrototype);
+        Expression.prototype = Object.create(abstractExpression);
         Expression.prototype.constructor = Expression;
         Object.defineProperty(Expression, "name", {value: name});
         Expression.prototype.isCorrectArguments = isCorrectArguments;
         Expression.prototype.evaluate = evaluate;
         Expression.prototype.diff = diff;
-        Expression.prototype.equalsImpl = equalsImpl;
         return Expression;
     }
 })();
 
 
 const operationFactory = (function () {
-    const AbstractOperation = {
-        name: "AbstractOperation",
+    const abstractOperation = {
         isCorrectArguments: function (...terms) {
             return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
-                && this.isCorrectArgumentsImpl(...terms);
+                && this.isCorrectTermsImpl(...terms);
         },
         evaluate: function (...args) { return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args))); },
         diff: function (varName) { return this.diffImpl(varName, ...this.terms); },
@@ -59,7 +57,9 @@ const operationFactory = (function () {
             }
             return new Const(this.evaluateImpl(...simples.map(term => term.value)));
         },
-        equals: function (expr) { return expr.constructor === this.constructor && this.equalsImpl(expr); }
+        equals: function (expr) {
+            return expr.constructor === this.constructor && this.terms.length === expr.terms.length && this.equalsImpl(expr);
+        }
     }
     return function (name, operator, isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
         function OperationConstructor(...terms) {
@@ -68,10 +68,10 @@ const operationFactory = (function () {
             }
             Object.defineProperty(this, "terms", {value: terms});
         }
-        OperationConstructor.prototype = Object.create(AbstractOperation);
+        OperationConstructor.prototype = Object.create(abstractOperation);
         OperationConstructor.prototype.constructor = OperationConstructor;
         Object.defineProperty(OperationConstructor, "name", {value: name});
-        OperationConstructor.prototype.isCorrectArgumentsImpl = isCorrectTermsImpl;
+        OperationConstructor.prototype.isCorrectTermsImpl = isCorrectTermsImpl;
         OperationConstructor.prototype.evaluateImpl = evaluateImpl;
         OperationConstructor.prototype.diffImpl = diffImpl;
         OperationConstructor.prototype.simplifyImpl = simplifyImpl;
@@ -82,14 +82,50 @@ const operationFactory = (function () {
     }
 })();
 
+function nonCommutativeEquals(expr) {
+    let ind = 0;
+    return this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[ind++]), true);
+}
+
+const commutativeEquals = (function () {
+    function* permutationGenerator(n) {
+        let p = [];
+        for (let i = 0; i < n; i++) { p.push(i); }
+        while (true) {
+            yield p;
+            let i = n - 2;
+            for (; i >= 0 && p[i] > p[i + 1]; i--) {}
+            if (i < 0) {
+                return;
+            }
+            let j = n - 1;
+            for (; p[i] > p[j]; j--) {}
+            swap(p, i, j);
+            for (j = 1; i + j < n - j; j++) { swap(p, i + j, n - j); }
+        }
+    }
+    function swap(array, i, j) {
+        let tmp = array[j];
+        array[j] = array[i];
+        array[i] = tmp;
+    }
+    return function (expr) {
+        let res = false;
+        for (let p of permutationGenerator(this.terms.length)) {
+            let ind = 0;
+            res ||= this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[p[ind++]]), true);
+        }
+        return res;
+    }
+})()
+
 
 const Const = expressionFactory(
     "Const",
     (obj, value) => { Object.defineProperty(obj, "value", {value: value}); },
     (value) => !isNaN(value),
     function () { return this.value; },
-    () => ZERO,
-    function (expr) { return expr.value === this.value; }
+    () => ZERO
 );
 
 const ZERO = new Const(0);
@@ -106,8 +142,7 @@ const Variable = expressionFactory(
     },
     (name) => ARGUMENT_POSITION.hasOwnProperty(name),
     function (...args) { return args[this.argPos]; },
-    function (varName) { return this.value === varName ? ONE : ZERO; },
-    function (expr) { return expr.value === this.value; }
+    function (varName) { return this.value === varName ? ONE : ZERO; }
 );
 
 
@@ -257,7 +292,7 @@ const Sign = operationFactory(
     "Sign", "sgn",
     () => true,
     Math.sign,
-    undefined,
+    () => { throw new Error("Sign has no diff() function"); },
     function (f) { return new Sign(f); },
     nonCommutativeEquals
 );
@@ -323,66 +358,55 @@ function parse(expression) {
     return stack.pop();
 }
 
-
-function abstractParser(expression, isPrefix) {
-    if (expression.length === 0) {
-        throw new ParseError(0, '', "bracket expression, variable or constant");
+const abstractParser = (function () {
+    function* tokenGenerator(expression) {
+        for (let match of expression.trim().matchAll(/[()]|[^()\s]+/g)) {
+            yield {index: match.index, word: match[0]};
+        }
+        return {index: expression.trim().length, word: ''};
     }
-    const gen = abstractParser.tokenGenerator(expression);
-    let res = abstractParser.parseRec(gen.next(), gen, isPrefix);
-    let token = gen.next();
-    abstractParser.checkToken(token, "end of expression", !token.done)
-    return res;
-}
-abstractParser.tokenGenerator = function* (expression) {
-    for (let match of expression.trim().matchAll(/\(|\)|[^()\s]+/g)) {
-        yield {index: match.index, word: match[0]};
+    function checkToken(token, expected, condition) {
+        if (condition) { throw new ParseError(token.value.index, token.value.word, expected); }
     }
-    return {index: expression.trim().length, word: ''};
-}
-abstractParser.checkToken = (token, expected, condition) => {
-    if (condition) { throw new ParseError(token.value.index, token.value.word, expected); }
-}
-abstractParser.parseRec = (token, gen, isPrefix) => {
-    abstractParser.checkToken(token, "bracket expression, variable or constant", token.done);
-    if (token.value.word === '(') {
-        let args = [];
-        let op;
-        token = gen.next();
-        abstractParser.checkToken(token, "operator", token.done);
-        if (isPrefix) {
-            if (OPERATIONS.hasOwnProperty(token.value.word)) {
+    function parseRec (token, gen, isPrefix) {
+        checkToken(token, "bracket expression, variable or constant", token.done);
+        if (token.value.word === '(') {
+            let op, items = [];
+            token = gen.next();
+            if (isPrefix) {
+                checkToken(token, "operator", token.done || !OPERATIONS.hasOwnProperty(token.value.word));
                 op = OPERATIONS[token.value.word];
                 token = gen.next();
-                while (!token.done && token.value.word !== ')') {
-                    args.push(abstractParser.parseRec(token, gen, isPrefix));
-                    token = gen.next();
-                }
-                abstractParser.checkToken(token, ")", token.done);
-            } else {
-                throw new ParseError(token.value.index, token.value.word, "operator");
             }
-        } else {
-            while (!token.done && token.value.word !== ')' && !OPERATIONS.hasOwnProperty(token.value.word)) {
-                args.push(abstractParser.parseRec(token, gen, isPrefix));
+            while (!token.done && token.value.word !== ')' && (isPrefix || !OPERATIONS.hasOwnProperty(token.value.word))) {
+                items.push(parseRec(token, gen, isPrefix));
                 token = gen.next();
             }
-            abstractParser.checkToken(token, "operator", token.done || token.value.word === ')');
-            op = OPERATIONS[token.value.word];
-            token = gen.next();
-            abstractParser.checkToken(token, ")", token.done || token.value.word !== ')');
-        }
-        return new op(...args);
-    } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
-        return new Variable(token.value.word);
-    } else {
-        try {
+            if (!isPrefix) {
+                checkToken(token, "operator", token.done || token.value.word === ')');
+                op = OPERATIONS[token.value.word];
+                token = gen.next();
+            }
+            checkToken(token, ')', token.done || token.value.word !== ')')
+            return new op(...items);
+        } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
+            return new Variable(token.value.word);
+        } else {
+            checkToken(token, "variable or constant", isNaN(token.value.word));
             return new Const(+token.value.word);
-        } catch (e) {
-            throw new ParseError(token.value.index, token.value.word, "variable or constant");
         }
     }
-}
+    return function (expression, isPrefix) {
+        if (expression.length === 0) {
+            throw new ParseError(0, '', "bracket expression, variable or constant");
+        }
+        const gen = tokenGenerator(expression);
+        let res = parseRec(gen.next(), gen, isPrefix);
+        let token = gen.next();
+        checkToken(token, "end of expression", !token.done)
+        return res;
+    }
+})();
 
 
 function parsePrefix(expression) { return abstractParser(expression, true); }
@@ -411,52 +435,14 @@ function createArrayOfMultipliers(expr) {
         createArrayOfMultipliers(expr.terms[0]).forEach((elem) => { array.push(elem); });
         createArrayOfMultipliers(expr.terms[1]).forEach((elem) => { array.push(elem); });
     } else if (expr.constructor === Pow && expr.terms[1].value === 2) {
-        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => {
-            array.push(elem);
-            array.push(elem);
-        });
+        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => { array.push(elem); array.push(elem); });
     } else {
         array.push(expr);
     }
     return array;
 }
 
-
-function nonCommutativeEquals(expr) {
-    let ind = 0;
-    return this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[ind++]), true);
-}
-
-function commutativeEquals(expr) {
-    let res = false;
-    for (let p of commutativeEquals.permutationGenerator(this.evaluateImpl.length)) {
-        let ind = 0;
-        res ||= this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[p[ind++]]), true);
-    }
-    return res;
-}
-
-commutativeEquals.permutationGenerator = function* (n) {
-    let p = [];
-    for (let i = 0; i < n; i++) { p.push(i); }
-    while (true) {
-        yield p;
-        let i = n - 2;
-        for (; i >= 0 && p[i] > p[i + 1]; i--) {}
-        if (i < 0) {
-            return;
-        }
-        let j = n - 1;
-        for (; p[i] > p[j]; j--) {}
-        commutativeEquals.permutationGenerator.swap(p, i, j);
-        for (j = 1; i + j < n - j; j++) {
-            commutativeEquals.permutationGenerator.swap(p, i + j, n - j);
-        }
-    }
-}
-
-commutativeEquals.permutationGenerator.swap = function (array, i, j) {
-    let tmp = array[j];
-    array[j] = array[i];
-    array[i] = tmp;
-}
+// println(parsePrefix("10"))
+// println(parsePrefix("jdfhgkdhfj"))
+// println(parsePrefix("NaN"))
+// println(parsePrefix("Infinity"))
