@@ -15,7 +15,7 @@ const expressionFactory = (function () {
     }
     return function (name, init, isCorrectArguments, evaluate, diff) {
         function Expression(...items) {
-            if (!this.isCorrectArguments(items)) {
+            if (!this.isCorrectArguments(...items)) {
                 throw new ArgumentsError(this.constructor.name, ...items);
             }
             init(this, ...items);
