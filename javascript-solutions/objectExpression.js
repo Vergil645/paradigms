@@ -2,7 +2,7 @@
 
 const CONSTANTS = {};
 const OPERATIONS = {};
-const ARGUMENT_POSITION = {"x": 0, "y": 1, "z": 2};
+const ARGUMENT_POSITION = Object.freeze({"x": 0, "y": 1, "z": 2});
 
 
 const expressionFactory = (function () {
@@ -13,42 +13,41 @@ const expressionFactory = (function () {
     abstractExpression.toString = abstractExpression.prefix = abstractExpression.postfix = function () {
         return this.value.toString();
     }
-    return function (name, init, isCorrectArguments, evaluate, diff) {
-        function Expression(...items) {
-            if (!this.isCorrectArguments(...items)) {
-                throw new ArgumentsError(this.constructor.name, ...items);
+    return Object.freeze({
+        abstractExpression: Object.freeze(abstractExpression),
+        create: function (name, init, isCorrectArguments, evaluate, diff) {
+            function Expression(...items) {
+                if (!isCorrectArguments(...items)) {
+                    throw new ArgumentsError(this.constructor.name, ...items);
+                }
+                init(this, ...items);
             }
-            init(this, ...items);
+            Object.defineProperty(Expression, "name", {value: name});
+            Expression.prototype = Object.create(abstractExpression, {
+                constructor: {value: Expression},
+                isCorrectArguments: {value: isCorrectArguments},
+                evaluate: {value: evaluate},
+                diff: {value: diff}
+            });
+            return Expression;
         }
-        Expression.prototype = Object.create(abstractExpression);
-        Expression.prototype.constructor = Expression;
-        Object.defineProperty(Expression, "name", {value: name});
-        Expression.prototype.isCorrectArguments = isCorrectArguments;
-        Expression.prototype.evaluate = evaluate;
-        Expression.prototype.diff = diff;
-        return Expression;
-    }
+    })
 })();
 
 
 const operationFactory = (function () {
-    const abstractOperation = {
-        isCorrectArguments: function (...terms) {
+    function createString(expr, printFunc) { return expr.terms.map((term) => term[printFunc]()).join(' '); }
+    const abstractOperation = Object.create(expressionFactory.abstractExpression, {
+        isCorrectArguments: {value: function (...terms) {
             return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
                 && this.isCorrectArgumentsImpl(...terms);
-        },
-        evaluate: function (...args) { return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args))); },
-        diff: function (varName) { return this.diffImpl(varName, ...this.terms); },
-        toString: function () {
-            return String.prototype.concat(...this.terms.map(term => `${term.toString()} `), this.operator);
-        },
-        prefix: function () {
-            return String.prototype.concat('(', this.operator, ...this.terms.map(term => ` ${term.prefix()}`), ')');
-        },
-        postfix: function () {
-            return String.prototype.concat('(', ...this.terms.map(term => `${term.postfix()} `), this.operator, ')');
-        },
-        simplify: function () {
+        }},
+        evaluate: {value: function (...args) { return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args))); }},
+        diff: {value: function (varName) { return this.diffImpl(varName, ...this.terms); }},
+        toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
+        prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
+        postfix: {value: function () { return `(${createString(this, "postfix")} ${this.operator})`; }},
+        simplify: {value: function () {
             let simples = this.terms.map(expr => expr.simplify());
             for (let simple of simples) {
                 if (simple.constructor !== Const) {
@@ -56,30 +55,34 @@ const operationFactory = (function () {
                 }
             }
             return new Const(this.evaluateImpl(...simples.map(term => term.value)));
-        },
-        equals: function (expr) {
+        }},
+        equals: {value: function (expr) {
             return expr.constructor === this.constructor && this.terms.length === expr.terms.length && this.equalsImpl(expr);
-        }
-    }
-    return function (name, operator, isCorrectArgumentsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
-        function OperationConstructor(...terms) {
-            if (!this.isCorrectArguments(...terms)) {
-                throw new ArgumentsError(this.constructor.name, ...terms);
+        }}
+    });
+    return Object.freeze({
+        abstractOperation: abstractOperation,
+        create: function(name, operator, isCorrectArgumentsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
+            function OperationConstructor(...terms) {
+                if (!this.isCorrectArguments(...terms)) {
+                    throw new ArgumentsError(this.constructor.name, ...terms);
+                }
+                Object.defineProperty(this, "terms", {value: terms});
             }
-            Object.defineProperty(this, "terms", {value: terms});
+            Object.defineProperty(OperationConstructor, "name", {value: name});
+            OperationConstructor.prototype = Object.create(abstractOperation, {
+                constructor: {value: OperationConstructor},
+                isCorrectArgumentsImpl: {value: isCorrectArgumentsImpl},
+                evaluateImpl: {value: evaluateImpl},
+                diffImpl: {value: diffImpl},
+                simplifyImpl: {value: simplifyImpl},
+                equalsImpl: {value: equalsImpl},
+                operator: {value: operator},
+            });
+            OPERATIONS[operator] = OperationConstructor;
+            return OperationConstructor;
         }
-        Object.defineProperty(OperationConstructor, "name", {value: name});
-        OperationConstructor.prototype = Object.create(abstractOperation);
-        OperationConstructor.prototype.constructor = OperationConstructor;
-        OperationConstructor.prototype.isCorrectArgumentsImpl = isCorrectArgumentsImpl;
-        OperationConstructor.prototype.evaluateImpl = evaluateImpl;
-        OperationConstructor.prototype.diffImpl = diffImpl;
-        OperationConstructor.prototype.simplifyImpl = simplifyImpl;
-        OperationConstructor.prototype.equalsImpl = equalsImpl;
-        OperationConstructor.prototype.operator = operator;
-        OPERATIONS[operator] = OperationConstructor;
-        return OperationConstructor;
-    }
+    })
 })();
 
 function nonCommutativeEquals(expr) {
@@ -120,7 +123,7 @@ const commutativeEquals = (function () {
 })()
 
 
-const Const = expressionFactory(
+const Const = expressionFactory.create(
     "Const",
     (obj, value) => { Object.defineProperty(obj, "value", {value: value}); },
     (value) => !isNaN(value),
@@ -134,7 +137,7 @@ const NEG_ONE = new Const(-1);
 const TWO = new Const(2);
 
 
-const Variable = expressionFactory(
+const Variable = expressionFactory.create(
     "Variable",
     (obj, value) => {
         Object.defineProperty(obj, "argPos", {value: ARGUMENT_POSITION[value]});
@@ -146,7 +149,7 @@ const Variable = expressionFactory(
 );
 
 
-const Add = operationFactory(
+const Add = operationFactory.create(
     "Add", "+",
     () => true,
     (x, y) => x + y,
@@ -160,7 +163,7 @@ const Add = operationFactory(
 );
 
 
-const Subtract = operationFactory(
+const Subtract = operationFactory.create(
     "Subtract", "-",
     () => true,
     (x, y) => x - y,
@@ -174,7 +177,7 @@ const Subtract = operationFactory(
 );
 
 
-const Multiply = operationFactory(
+const Multiply = operationFactory.create(
     "Multiply", "*",
     () => true,
     (x, y) => x * y,
@@ -189,7 +192,7 @@ const Multiply = operationFactory(
 );
 
 
-const Divide = operationFactory(
+const Divide = operationFactory.create(
     "Divide", "/",
     () => true,
     (x, y) => x / y,
@@ -229,7 +232,7 @@ const Divide = operationFactory(
 );
 
 
-const Negate = operationFactory(
+const Negate = operationFactory.create(
     "Negate", "negate",
     () => true,
     (x) => -x,
@@ -239,7 +242,7 @@ const Negate = operationFactory(
 );
 
 
-const Hypot = operationFactory(
+const Hypot = operationFactory.create(
     "Hypot", "hypot",
     () => true,
     (x, y) => x * x + y * y,
@@ -256,7 +259,7 @@ const Hypot = operationFactory(
 );
 
 
-const HMean = operationFactory(
+const HMean = operationFactory.create(
     "HMean", "hmean",
     () => true,
     (x, y) => 2 / (1 / x + 1 / y),
@@ -271,7 +274,7 @@ const HMean = operationFactory(
 );
 
 
-const Pow = operationFactory(
+const Pow = operationFactory.create(
     "Pow", "^",
     (f, g) => g.constructor === Const,
     (x, y) => x ** y,
@@ -288,7 +291,7 @@ const Pow = operationFactory(
 );
 
 
-const Sign = operationFactory(
+const Sign = operationFactory.create(
     "Sign", "sgn",
     () => true,
     Math.sign,
@@ -298,7 +301,7 @@ const Sign = operationFactory(
 );
 
 
-const ArithMean = operationFactory(
+const ArithMean = operationFactory.create(
     "ArithMean", "arith-mean",
     (...terms) => terms.length > 0,
     (...a) => a.reduce((acc, cur) => acc + cur, 0) / a.length,
@@ -310,7 +313,7 @@ const ArithMean = operationFactory(
 );
 
 
-const GeomMean = operationFactory(
+const GeomMean = operationFactory.create(
     "GeomMean", "geom-mean",
     (...terms) => terms.length > 0,
     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
@@ -327,7 +330,7 @@ const GeomMean = operationFactory(
 );
 
 
-const HarmMean = operationFactory(
+const HarmMean = operationFactory.create(
     "HarmMean", "harm-mean",
     (...terms) => terms.length > 0,
     (...a) => a.length / a.reduce((acc, cur) => acc + 1 / cur, 0),
@@ -442,6 +445,7 @@ function createArrayOfMultipliers(expr) {
     return array;
 }
 
+// println(parsePrefix("(+ 100x)"))
 // println(parsePostfix("(x y (2 3 +))"))
 // println(parsePrefix("10"))
 // println(parsePrefix("jdfhgkdhfj"))
