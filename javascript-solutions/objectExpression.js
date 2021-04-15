@@ -35,7 +35,7 @@ const operationFactory = (function () {
     const abstractOperation = {
         isCorrectArguments: function (...terms) {
             return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
-                && this.isCorrectTermsImpl(...terms);
+                && this.isCorrectArgumentsImpl(...terms);
         },
         evaluate: function (...args) { return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args))); },
         diff: function (varName) { return this.diffImpl(varName, ...this.terms); },
@@ -61,17 +61,17 @@ const operationFactory = (function () {
             return expr.constructor === this.constructor && this.terms.length === expr.terms.length && this.equalsImpl(expr);
         }
     }
-    return function (name, operator, isCorrectTermsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
+    return function (name, operator, isCorrectArgumentsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
         function OperationConstructor(...terms) {
             if (!this.isCorrectArguments(...terms)) {
                 throw new ArgumentsError(this.constructor.name, ...terms);
             }
             Object.defineProperty(this, "terms", {value: terms});
         }
+        Object.defineProperty(OperationConstructor, "name", {value: name});
         OperationConstructor.prototype = Object.create(abstractOperation);
         OperationConstructor.prototype.constructor = OperationConstructor;
-        Object.defineProperty(OperationConstructor, "name", {value: name});
-        OperationConstructor.prototype.isCorrectTermsImpl = isCorrectTermsImpl;
+        OperationConstructor.prototype.isCorrectArgumentsImpl = isCorrectArgumentsImpl;
         OperationConstructor.prototype.evaluateImpl = evaluateImpl;
         OperationConstructor.prototype.diffImpl = diffImpl;
         OperationConstructor.prototype.simplifyImpl = simplifyImpl;
@@ -442,6 +442,7 @@ function createArrayOfMultipliers(expr) {
     return array;
 }
 
+// println(parsePostfix("(x y (2 3 +))"))
 // println(parsePrefix("10"))
 // println(parsePrefix("jdfhgkdhfj"))
 // println(parsePrefix("NaN"))
