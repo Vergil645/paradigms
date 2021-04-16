@@ -100,7 +100,9 @@ const commutativeEquals = (function () {
             let j = n - 1;
             for (; p[i] > p[j]; j--) {}
             swap(p, i, j);
-            for (j = 1; i + j < n - j; j++) { swap(p, i + j, n - j); }
+            for (j = 1; i + j < n - j; j++) {
+                swap(p, i + j, n - j);
+            }
         }
     }
     function swap(array, i, j) {
@@ -110,6 +112,7 @@ const commutativeEquals = (function () {
     }
     return function (expr) {
         let res = false;
+        // :NOTE: ??
         for (let p of permutationGenerator(this.terms.length)) {
             let ind = 0;
             res ||= this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[p[ind++]]), true);
@@ -147,12 +150,14 @@ const Variable = expressionFactory.create(
 
 const Add = operationFactory.create(
     "Add", "+",
-    () => true,
+    () => true, // :NOTE: ??
     (x, y) => x + y,
+    // :NOTE: .diff(varName)
     (varName, f, g) => new Add(f.diff(varName), g.diff(varName)),
     (f, g) => {
         if (f.equals(ZERO)) { return g; }
         else if (g.equals(ZERO)) { return f; }
+        // :NOTE: Дубли
         return new Add(f, g);
     },
     commutativeEquals,
