@@ -9,10 +9,10 @@ const expressionFactory = (function () {
     const abstractExpression = {
         simplify: function () { return this; },
         equals: function (expr) { return this.constructor === expr.constructor && expr.value === this.value; }
-    }
+    };
     abstractExpression.toString = abstractExpression.prefix = abstractExpression.postfix = function () {
         return this.value.toString();
-    }
+    };
     return Object.freeze({
         abstractExpression: Object.freeze(abstractExpression),
         create: function (name, init, isCorrectArguments, evaluate, diff) {
@@ -116,7 +116,7 @@ const commutativeEquals = (function () {
         }
         return res;
     }
-})()
+})();
 
 
 const Const = expressionFactory.create(
@@ -387,7 +387,7 @@ const abstractParser = (function () {
                 op = OPERATIONS[token.value.word];
                 token = gen.next();
             }
-            checkToken(token, ')', token.done || token.value.word !== ')')
+            checkToken(token, ')', token.done || token.value.word !== ')');
             try {
                 return new op(...items);
             } catch (e) {
@@ -407,7 +407,7 @@ const abstractParser = (function () {
         const gen = tokenGenerator(expression);
         let res = parseRec(gen.next(), gen, isPrefix);
         let token = gen.next();
-        checkToken(token, "end of expression", !token.done)
+        checkToken(token, "end of expression", !token.done);
         return res;
     }
 })();
