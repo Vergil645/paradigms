@@ -17,7 +17,7 @@ const expressionFactory = (function () {
         abstractExpression: Object.freeze(abstractExpression),
         create: function (name, init, isCorrectArguments, evaluate, diff) {
             function Expression(...items) {
-                if (!isCorrectArguments(...items)) {
+                if (!this.isCorrectArguments(...items)) {
                     throw new ArgumentsError(this.constructor.name, ...items);
                 }
                 init(this, ...items);
@@ -63,13 +63,9 @@ const operationFactory = (function () {
     return Object.freeze({
         abstractOperation: abstractOperation,
         create: function(name, operator, isCorrectArgumentsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
-            function OperationConstructor(...terms) {
-                if (!this.isCorrectArguments(...terms)) {
-                    throw new ArgumentsError(this.constructor.name, ...terms);
-                }
-                Object.defineProperty(this, "terms", {value: terms});
-            }
-            Object.defineProperty(OperationConstructor, "name", {value: name});
+            const OperationConstructor = expressionFactory.create(name, (obj, ...terms) => {
+                Object.defineProperty(obj, "terms", {value: terms});
+            });
             OperationConstructor.prototype = Object.create(abstractOperation, {
                 constructor: {value: OperationConstructor},
                 isCorrectArgumentsImpl: {value: isCorrectArgumentsImpl},
