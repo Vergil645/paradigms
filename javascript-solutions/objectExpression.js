@@ -375,6 +375,7 @@ const abstractParser = (function () {
         checkToken(token, "bracket expression, variable or constant", token.done);
         if (token.value.word === '(') {
             let op, items = [];
+            let beginToken = token;
             token = gen.next();
             if (isPrefix) {
                 checkToken(token, "operator", token.done || !OPERATIONS.hasOwnProperty(token.value.word));
@@ -391,7 +392,11 @@ const abstractParser = (function () {
                 token = gen.next();
             }
             checkToken(token, ')', token.done || token.value.word !== ')')
-            return new op(...items);
+            try {
+                return new op(...items);
+            } catch (e) {
+                throw new ParseFunctionArgumentsError(`On positions ${beginToken.value.index + 1}-${token.value.index + 1}: ${e.message}`);
+            }
         } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
             return new Variable(token.value.word);
         } else {
@@ -430,6 +435,9 @@ function ParseError(begin, word, expected) {
         + `Expected: ${expected}\nFound: '${word}'`;
 }
 errorPrototypeFactory(ParseError);
+
+function ParseFunctionArgumentsError(message) { this.message = message; }
+errorPrototypeFactory(ParseFunctionArgumentsError);
 
 
 function createArrayOfMultipliers(expr) {
