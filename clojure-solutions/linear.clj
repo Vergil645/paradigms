@@ -1,3 +1,11 @@
+;Utility
+(defn check-near [f arr]
+  (first (reduce
+           (fn [[res a] b]
+             (vector (and res (f a b)) b))
+           [true (first arr)] (rest arr))))
+
+
 ;Vector-utility
 (defn vecs? [& vecs]
   (and (every? vector? vecs) (every? #(every? number? %) vecs) (apply == (mapv count vecs))))
@@ -52,24 +60,55 @@
 (def m*v (m-vec scalar))
 (defn transpose [m]
   {:pre [(matrix? m)]}
-  (reduce #(mapv conj %1 %2) (vec (repeat (m-width m) [])) m))
+  (apply mapv vector m))
 (defn m*m [& ms]
-  {:pre [(first (reduce
-                  (fn [[res ma] mb]
-                    (vector (and res (matrix? ma) (matrix? mb) (== (m-width ma) (m-height mb))) mb))
-                  [true (first ms)] (rest ms)))]}
+  {:pre [(check-near #(and (matrix? %1) (matrix? %2) (== (m-width %1) (m-height %2))) ms)]}
   (reduce (fn [ma mb] (let [bt (transpose mb)] (mapv #(m*v bt %) ma))) ms))
 
 
 ;Tensor-utility
+(defn form [t]
+  (if (vector? t)
+    (apply vector (count t) (form (first t)))
+    []))
+(defn tensor? [t]
+  (cond
+    (number? t) true
+    (vector? t) (and (not (empty? t)) (every? tensor? t) (apply = (mapv form t)))))
 (defn t-ts [f]
-  (letfn [(t-op [ta tb]
-            (if (number? ta)
-              (f ta tb)
-              (mapv t-op ta tb)))] t-op))
+  (letfn [(ts-op [& ts]
+            (if (number? (first ts))
+              (apply f ts)
+              (apply mapv ts-op ts)))]
+    ts-op))
 
-;Tensors
-(def t+ (t-ts +))
-(def t- (t-ts -))
-(def t* (t-ts *))
-(def td (t-ts /))
+
+;Broadcast-utility
+(defn major-form [fma fmb]
+  (let [ca (count fma) cb (count fmb)]
+    (cond
+      (and (<= ca cb) (= fma (subvec fmb 0 ca))) fmb
+      (and (< cb ca) (= fmb (subvec fma 0 cb))) fma)))
+(defn make-form [num fm]
+  (if (empty? fm)
+    num
+    (vec (repeat (first fm) (make-form num (rest fm))))))
+(defn do-broadcast [ta fmb]
+  (letfn [(rec [t fm] (if (number? t)
+                     (make-form t fm)
+                     (mapv #(rec % fm) t)))]
+    (rec ta (subvec fmb (count (form ta))))))
+(defn do-broadcasts [& ts]
+  (let [f (reduce major-form (mapv form ts))]
+    (mapv #(do-broadcast % f) ts)))
+(defn tb-tbs [f]
+  (fn [& tbs]
+    {:pre [(every? tensor? tbs) (reduce major-form (mapv form tbs))]}
+    (let [tb-op (t-ts f)]
+      (apply tb-op (apply do-broadcasts tbs)))))
+
+;Broadcasts
+(def tb+ (tb-tbs +))
+(def tb- (tb-tbs -))
+(def tb* (tb-tbs *))
+(def tbd (tb-tbs /))
