@@ -1,37 +1,37 @@
 ;Utility
 (defn check-near [f arr]
   (first (reduce
-           (fn [[res a] b]
-             (vector (and res (f a b)) b))
+           (fn [[res a] b] (vector (and res (f a b)) b))
            [true (first arr)] (rest arr))))
 
 
 ;Vector-utility
-(defn vecs? [& vecs]
-  (and (every? vector? vecs) (every? #(every? number? %) vecs) (apply == (mapv count vecs))))
-(defn vec-vecs [f]
-  (fn [& vs]
-    {:pre [(apply vecs? vs)]}
-    (apply mapv f vs)))
-(defn vec-nums [f]
+(defn vecs? [v & vs]
+  (let [vvs (cons v vs)]
+    (and (every? vector? vvs) (every? #(every? number? %) vvs) (apply == (mapv count vvs)))))
+(defn v-vs [f]
+  (fn [v & vs]
+    {:pre [(apply vecs? v vs)]}
+    (apply mapv f v vs)))
+(defn v-nums [f]
   (fn [v & nums]
     {:pre [(vecs? v) (every? number? nums)]}
     (mapv #(apply f % nums) v)))
 
 ;Vectors
-(def v+ (vec-vecs +))
-(def v- (vec-vecs -))
-(def v* (vec-vecs *))
-(def vd (vec-vecs /))
-(defn scalar [& vs]
-  {:pre [(apply vecs? vs)]}
-  (apply + (apply v* vs)))
-(defn vect [& vs]
-  {:pre [(apply vecs? vs) (apply == 3 (mapv count vs))]}
+(def v+ (v-vs +))
+(def v- (v-vs -))
+(def v* (v-vs *))
+(def vd (v-vs /))
+(defn scalar [v & vs]
+  {:pre [(apply vecs? v vs)]}
+  (apply + (apply v* v vs)))
+(defn vect [v & vs]
+  {:pre [(apply vecs? v vs) (apply == 3 (count v) (mapv count vs))]}
   (letfn [(minor [va vb i j]
             (- (* (va i) (vb j)) (* (va j) (vb i))))]
-    (reduce #(vector (minor %1 %2 1 2) (minor %1 %2 2 0) (minor %1 %2 0 1)) vs)))
-(def v*s (vec-nums *))
+    (reduce #(vector (minor %1 %2 1 2) (minor %1 %2 2 0) (minor %1 %2 0 1)) v vs)))
+(def v*s (v-nums *))
 
 
 ;Matrix-utility
@@ -39,13 +39,14 @@
 (defn m-height [m] (count m))
 (defn m-width [m] (count (m 0)))
 (defn m-ms [f]
-  (fn [& ms]
-    {:pre [(every? matrix? ms) (apply == (mapv m-height ms)) (apply == (mapv m-width ms))]}
-    (apply mapv f ms)))
-(defn m-vec [f]
-  (fn [m vec]
-    {:pre [(matrix? m) (vecs? vec)]}
-    (mapv #(f % vec) m)))
+  (fn [m & ms]
+    {:pre [(let [mms (cons m ms)]
+             (and (every? matrix? mms) (apply == (mapv m-height mms)) (apply == (mapv m-width mms))))]}
+    (apply mapv f m ms)))
+(defn m-v [f]
+  (fn [m v]
+    {:pre [(matrix? m) (vecs? v)]}
+    (mapv #(f % v) m)))
 (defn m-nums [f]
   (fn [m & nums]
     {:pre [(matrix? m) (every? number? nums)]}
@@ -57,13 +58,13 @@
 (def m* (m-ms v*))
 (def md (m-ms vd))
 (def m*s (m-nums *))
-(def m*v (m-vec scalar))
+(def m*v (m-v scalar))
 (defn transpose [m]
   {:pre [(matrix? m)]}
   (apply mapv vector m))
-(defn m*m [& ms]
-  {:pre [(check-near #(and (matrix? %1) (matrix? %2) (== (m-width %1) (m-height %2))) ms)]}
-  (reduce (fn [ma mb] (let [bt (transpose mb)] (mapv #(m*v bt %) ma))) ms))
+(defn m*m [m & ms]
+  {:pre [(check-near #(and (matrix? %1) (matrix? %2) (== (m-width %1) (m-height %2))) (cons m ms))]}
+  (reduce (fn [ma mb] (let [bt (transpose mb)] (mapv #(m*v bt %) ma))) m ms))
 
 
 ;Tensor-utility
@@ -76,10 +77,10 @@
     (number? t) true
     (vector? t) (and (not (empty? t)) (every? tensor? t) (apply = (mapv form t)))))
 (defn t-ts [f]
-  (letfn [(ts-op [& ts]
-            (if (number? (first ts))
-              (apply f ts)
-              (apply mapv ts-op ts)))]
+  (letfn [(ts-op [t & ts]
+            (if (number? t)
+              (apply f t ts)
+              (apply mapv ts-op t ts)))]
     ts-op))
 
 
@@ -95,17 +96,17 @@
     (vec (repeat (first fm) (make-form num (rest fm))))))
 (defn do-broadcast [ta fmb]
   (letfn [(rec [t fm] (if (number? t)
-                     (make-form t fm)
-                     (mapv #(rec % fm) t)))]
+                        (make-form t fm)
+                        (mapv #(rec % fm) t)))]
     (rec ta (subvec fmb (count (form ta))))))
-(defn do-broadcasts [& ts]
-  (let [f (reduce major-form (mapv form ts))]
-    (mapv #(do-broadcast % f) ts)))
+(defn do-broadcasts [t & ts]
+  (let [f (reduce major-form (form t) (mapv form ts))]
+    (mapv #(do-broadcast % f) (cons t ts))))
 (defn tb-tbs [f]
-  (fn [& tbs]
-    {:pre [(every? tensor? tbs) (reduce major-form (mapv form tbs))]}
+  (fn [t & ts]
+    {:pre [(every? tensor? (cons t ts)) (reduce major-form (form t) (mapv form ts))]}
     (let [tb-op (t-ts f)]
-      (apply tb-op (apply do-broadcasts tbs)))))
+      (apply tb-op (apply do-broadcasts t ts)))))
 
 ;Broadcasts
 (def tb+ (tb-tbs +))
