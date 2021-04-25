@@ -27,42 +27,42 @@ const expressionFactory = (function () {
 })();
 
 
-const operationFactory = (function () {
-    function createString(expr, printFunc) {
-        return expr.terms.map((term) => term[printFunc]()).join(' ');
-    }
-    const abstractOperation = Object.create(expressionFactory.abstractExpression, {
-        evaluate: {value: function (...args) {
-            return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
-        }},
-        diff: {value: function (varName) {
-            return this.diffImpl(...this.terms, ...this.terms.map((term) => term.diff(varName)));
-        }},
-        toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
-        prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
-        postfix: {value: function () { return `(${createString(this, "postfix")} ${this.operator})`; }},
-    });
-    return Object.freeze({
-        abstractOperation: abstractOperation,
-        create: function(name, operator, evaluateImpl, diffImpl) {
-            function Operation(...terms) {
-                if (terms.length === 0 || (evaluateImpl.length !== 0 && evaluateImpl.length !== terms.length)) {
-                    throw new ArgumentsError(name, ...terms);
-                }
-                Object.defineProperty(this, "terms", {value: terms});
-            }
-            Object.defineProperty(Operation, "name", {value: name});
-            Operation.prototype = Object.create(abstractOperation, {
-                constructor: {value: Operation},
-                evaluateImpl: {value: evaluateImpl},
-                diffImpl: {value: diffImpl},
-                operator: {value: operator},
-            });
-            OPERATIONS[operator] = Operation;
-            return Operation;
-        }
-    })
-})();
+// const operationFactory = (function () {
+//     function createString(expr, printFunc) {
+//         return expr.terms.map((term) => term[printFunc]()).join(' ');
+//     }
+//     const abstractOperation = Object.create(expressionFactory.abstractExpression, {
+//         evaluate: {value: function (...args) {
+//             return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
+//         }},
+//         diff: {value: function (varName) {
+//             return this.diffImpl(...this.terms, ...this.terms.map((term) => term.diff(varName)));
+//         }},
+//         toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
+//         prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
+//         postfix: {value: function () { return `(${createString(this, "postfix")} ${this.operator})`; }},
+//     });
+//     return Object.freeze({
+//         abstractOperation: abstractOperation,
+//         create: function(name, operator, evaluateImpl, diffImpl) {
+//             function Operation(...terms) {
+//                 if (terms.length === 0 || (evaluateImpl.length !== 0 && evaluateImpl.length !== terms.length)) {
+//                     throw new ArgumentsError(name, ...terms);
+//                 }
+//                 Object.defineProperty(this, "terms", {value: terms});
+//             }
+//             Object.defineProperty(Operation, "name", {value: name});
+//             Operation.prototype = Object.create(abstractOperation, {
+//                 constructor: {value: Operation},
+//                 evaluateImpl: {value: evaluateImpl},
+//                 diffImpl: {value: diffImpl},
+//                 operator: {value: operator},
+//             });
+//             OPERATIONS[operator] = Operation;
+//             return Operation;
+//         }
+//     })
+// })();
 
 
 const Const = expressionFactory.create(
