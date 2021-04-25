@@ -1,31 +1,23 @@
 "use strict";
 
-const CONSTANTS = {};
 const OPERATIONS = {};
 const ARGUMENT_POSITION = Object.freeze({"x": 0, "y": 1, "z": 2});
 
 
 const expressionFactory = (function () {
-    const abstractExpression = {
-        simplify: function () { return this; },
-        equals: function (expr) { return this.constructor === expr.constructor && expr.value === this.value; }
-    };
+    const abstractExpression = {};
     abstractExpression.toString = abstractExpression.prefix = abstractExpression.postfix = function () {
         return this.value.toString();
     };
     return Object.freeze({
         abstractExpression: Object.freeze(abstractExpression),
-        create: function (name, init, isCorrectArguments, evaluate, diff) {
+        create: function (name, init, evaluate, diff) {
             function Expression(...items) {
-                if (!this.isCorrectArguments(...items)) {
-                    throw new ArgumentsError(this.constructor.name, ...items);
-                }
                 init(this, ...items);
             }
             Object.defineProperty(Expression, "name", {value: name});
             Expression.prototype = Object.create(abstractExpression, {
                 constructor: {value: Expression},
-                isCorrectArguments: {value: isCorrectArguments},
                 evaluate: {value: evaluate},
                 diff: {value: diff}
             });
@@ -36,103 +28,52 @@ const expressionFactory = (function () {
 
 
 const operationFactory = (function () {
-    function createString(expr, printFunc) { return expr.terms.map((term) => term[printFunc]()).join(' '); }
+    function createString(expr, printFunc) {
+        return expr.terms.map((term) => term[printFunc]()).join(' ');
+    }
     const abstractOperation = Object.create(expressionFactory.abstractExpression, {
-        isCorrectArguments: {value: function (...terms) {
-            return (this.evaluateImpl.length === 0 || this.evaluateImpl.length === terms.length)
-                && this.isCorrectArgumentsImpl(...terms);
+        evaluate: {value: function (...args) {
+            return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
         }},
-        evaluate: {value: function (...args) { return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args))); }},
-        diff: {value: function (varName) { return this.diffImpl(varName, ...this.terms); }},
+        diff: {value: function (varName) {
+            return this.diffImpl(...this.terms, ...this.terms.map((term) => term.diff(varName)));
+        }},
         toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
         prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
         postfix: {value: function () { return `(${createString(this, "postfix")} ${this.operator})`; }},
-        simplify: {value: function () {
-            let simples = this.terms.map(expr => expr.simplify());
-            for (let simple of simples) {
-                if (simple.constructor !== Const) {
-                    return this.simplifyImpl(...simples);
-                }
-            }
-            return new Const(this.evaluateImpl(...simples.map(term => term.value)));
-        }},
-        equals: {value: function (expr) {
-            return expr.constructor === this.constructor && this.terms.length === expr.terms.length && this.equalsImpl(expr);
-        }}
     });
     return Object.freeze({
         abstractOperation: abstractOperation,
-        create: function(name, operator, isCorrectArgumentsImpl, evaluateImpl, diffImpl, simplifyImpl, equalsImpl) {
-            const OperationConstructor = expressionFactory.create(name, (obj, ...terms) => {
-                Object.defineProperty(obj, "terms", {value: terms});
-            });
-            OperationConstructor.prototype = Object.create(abstractOperation, {
-                constructor: {value: OperationConstructor},
-                isCorrectArgumentsImpl: {value: isCorrectArgumentsImpl},
+        create: function(name, operator, evaluateImpl, diffImpl) {
+            function Operation(...terms) {
+                if (terms.length === 0 || (evaluateImpl.length !== 0 && evaluateImpl.length !== terms.length)) {
+                    throw new ArgumentsError(name, ...terms);
+                }
+                Object.defineProperty(this, "terms", {value: terms});
+            }
+            Object.defineProperty(Operation, "name", {value: name});
+            Operation.prototype = Object.create(abstractOperation, {
+                constructor: {value: Operation},
                 evaluateImpl: {value: evaluateImpl},
                 diffImpl: {value: diffImpl},
-                simplifyImpl: {value: simplifyImpl},
-                equalsImpl: {value: equalsImpl},
                 operator: {value: operator},
             });
-            OPERATIONS[operator] = OperationConstructor;
-            return OperationConstructor;
+            OPERATIONS[operator] = Operation;
+            return Operation;
         }
     })
-})();
-
-function nonCommutativeEquals(expr) {
-    let ind = 0;
-    return this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[ind++]), true);
-}
-
-const commutativeEquals = (function () {
-    function* permutationGenerator(n) {
-        let p = [];
-        for (let i = 0; i < n; i++) { p.push(i); }
-        while (true) {
-            yield p;
-            let i = n - 2;
-            for (; i >= 0 && p[i] > p[i + 1]; i--) {}
-            if (i < 0) {
-                return;
-            }
-            let j = n - 1;
-            for (; p[i] > p[j]; j--) {}
-            swap(p, i, j);
-            for (j = 1; i + j < n - j; j++) {
-                swap(p, i + j, n - j);
-            }
-        }
-    }
-    function swap(array, i, j) {
-        let tmp = array[j];
-        array[j] = array[i];
-        array[i] = tmp;
-    }
-    return function (expr) {
-        let res = false;
-        // :NOTE: ??
-        for (let p of permutationGenerator(this.terms.length)) {
-            let ind = 0;
-            res ||= this.terms.reduce((acc, cur) => acc && cur.equals(expr.terms[p[ind++]]), true);
-        }
-        return res;
-    }
 })();
 
 
 const Const = expressionFactory.create(
     "Const",
     (obj, value) => { Object.defineProperty(obj, "value", {value: value}); },
-    (value) => !isNaN(value),
     function () { return this.value; },
     () => ZERO
 );
 
 const ZERO = new Const(0);
 const ONE = new Const(1);
-const NEG_ONE = new Const(-1);
 const TWO = new Const(2);
 
 
@@ -142,7 +83,6 @@ const Variable = expressionFactory.create(
         Object.defineProperty(obj, "argPos", {value: ARGUMENT_POSITION[value]});
         Object.defineProperty(obj, "value", {value: value});
     },
-    (name) => ARGUMENT_POSITION.hasOwnProperty(name),
     function (...args) { return args[this.argPos]; },
     function (varName) { return this.value === varName ? ONE : ZERO; }
 );
@@ -150,198 +90,126 @@ const Variable = expressionFactory.create(
 
 const Add = operationFactory.create(
     "Add", "+",
-    () => true, // :NOTE: ??
     (x, y) => x + y,
-    // :NOTE: .diff(varName)
-    (varName, f, g) => new Add(f.diff(varName), g.diff(varName)),
-    (f, g) => {
-        if (f.equals(ZERO)) { return g; }
-        else if (g.equals(ZERO)) { return f; }
-        // :NOTE: Дубли
-        return new Add(f, g);
-    },
-    commutativeEquals,
+    (f, g, df, dg) => new Add(df, dg)
 );
 
 
 const Subtract = operationFactory.create(
     "Subtract", "-",
-    () => true,
     (x, y) => x - y,
-    (varName, f, g) => new Subtract(f.diff(varName), g.diff(varName)),
-    (f, g) => {
-        if (f.equals(ZERO)) { return new Multiply(NEG_ONE, g); }
-        else if (g.equals(ZERO)) { return f; }
-        return new Subtract(f, g);
-    },
-    nonCommutativeEquals,
+    (f, g, df, dg) => new Subtract(df, dg)
 );
 
 
 const Multiply = operationFactory.create(
     "Multiply", "*",
-    () => true,
     (x, y) => x * y,
-    (varName, f, g) => new Add(new Multiply(f, g.diff(varName)), new Multiply(f.diff(varName), g)),
-    (f, g) => {
-        if (f.equals(ZERO) || g.equals(ZERO)) { return ZERO; }
-        else if (f.equals(ONE)) { return g; }
-        else if (g.equals(ONE)) { return f; }
-        return f.equals(g) ? new Pow(f, TWO) : new Multiply(f, g);
-    },
-    commutativeEquals,
+    (f, g, df, dg) => new Add(new Multiply(f, dg), new Multiply(df, g))
 );
 
 
 const Divide = operationFactory.create(
     "Divide", "/",
-    () => true,
     (x, y) => x / y,
-    (varName, f, g) => new Divide(
-        new Subtract(new Multiply(f.diff(varName), g), new Multiply(f, g.diff(varName))),
+    (f, g, df, dg) => new Divide(
+        new Subtract(new Multiply(df, g), new Multiply(f, dg)),
         new Multiply(g, g)
-    ),
-    (f, g) => {
-        if (f.equals(ZERO)) { return ZERO; }
-        else if (g.equals(ONE)) { return f; }
-        else {
-            let array0 = createArrayOfMultipliers(f);
-            let array1 = createArrayOfMultipliers(g);
-            let simplifiedFlag = false;
-            for (let i = 0; i < array0.length; i++) {
-                let findFlag = false;
-                for (let j = 0; j < array1.length; j++) {
-                    if (array1[j] !== null && array0[i].equals(array1[j])) {
-                        if (findFlag) {
-                            array0[i] = null;
-                            array1[j] = null;
-                            simplifiedFlag = true;
-                            break;
-                        } else {
-                            findFlag = true;
-                        }
-                    }
-                }
-            }
-            return !simplifiedFlag ? new Divide(f, g) : Divide.prototype.simplifyImpl(
-                array0.reduce((acc, cur) => cur !== null ? new Multiply(acc, cur) : acc, ONE).simplify(),
-                array1.reduce((acc, cur) => cur !== null ? new Multiply(acc, cur) : acc, ONE).simplify()
-            );
-        }
-    },
-    nonCommutativeEquals,
+    )
 );
 
 
 const Negate = operationFactory.create(
     "Negate", "negate",
-    () => true,
     (x) => -x,
-    (varName, f) => new Negate(f.diff(varName)),
-    (f) => new Multiply(NEG_ONE, f),
-    nonCommutativeEquals,
+    (f, df) => new Negate(df)
 );
 
 
 const Hypot = operationFactory.create(
     "Hypot", "hypot",
-    () => true,
     (x, y) => x * x + y * y,
-    (varName, f, g) => new Add(
-        new Multiply(TWO, new Multiply(f, f.diff(varName))),
-        new Multiply(TWO, new Multiply(g, g.diff(varName)))
-    ),
-    (f, g) => {
-        if (f.equals(ZERO)) { return new Pow(g, TWO); }
-        else if (g.equals(ZERO)) { return new Pow(f, TWO); }
-        return new Hypot(f, g);
-    },
-    commutativeEquals,
+    (f, g, df, dg) => new Add(
+        new Multiply(TWO, new Multiply(f, df)),
+        new Multiply(TWO, new Multiply(g, dg))
+    )
 );
 
 
 const HMean = operationFactory.create(
     "HMean", "hmean",
-    () => true,
     (x, y) => 2 / (1 / x + 1 / y),
-    (varName, f, g) => new Divide(new Multiply(TWO, new Add(
-            new Multiply(new Pow(g, TWO), f.diff(varName)),
-            new Multiply(new Pow(f, TWO), g.diff(varName)))
+    (f, g, df, dg) => new Divide(
+        new Multiply(TWO, new Add(
+            new Multiply(new Pow(g, TWO), df),
+            new Multiply(new Pow(f, TWO), dg))
         ),
         new Pow(new Add(f, g), TWO)
-    ),
-    (f, g) => f.equals(ZERO) || g.equals(ZERO) ? ZERO : new HMean(f, g),
-    commutativeEquals,
+    )
 );
 
 
 const Pow = operationFactory.create(
     "Pow", "^",
-    (f, g) => g.constructor === Const,
     (x, y) => x ** y,
-    (varName, f, p) => new Multiply(new Const(p.value),
-        new Multiply(new Pow(f, new Const(p.value - 1)), f.diff(varName))
-    ),
-    (f, g) => {
-        if (f.equals(ZERO)) { return ZERO; }
-        else if (g.equals(ZERO)) { return ONE; }
-        else if (g.equals(ONE)) { return f; }
-        return new Pow(f, g);
-    },
-    nonCommutativeEquals,
+    (f, g, df, dg) => new Multiply(
+        new Pow(f, new Subtract(g, ONE)),
+        new Add(new Multiply(df, g), new Multiply(new Multiply(f, new Log(f)), dg))
+    )
 );
 
 
-const Sign = operationFactory.create(
-    "Sign", "sgn",
-    () => true,
-    Math.sign,
-    () => { throw new Error("Sign has no diff() function"); },
-    function (f) { return new Sign(f); },
-    nonCommutativeEquals
+const Log = operationFactory.create(
+    "Log", "log",
+    Math.log,
+    (f, df) => new Divide(df, f)
 );
 
 
 const ArithMean = operationFactory.create(
     "ArithMean", "arith-mean",
-    (...terms) => terms.length > 0,
     (...a) => a.reduce((acc, cur) => acc + cur, 0) / a.length,
-    (varName, ...terms) => new Multiply(new Const(1 / terms.length),
-        terms.reduce((acc, cur) => new Add(acc, cur.diff(varName)), ZERO)
-    ),
-    function (...funcs) { return new ArithMean(...funcs); },
-    commutativeEquals
+    (...items) => new Multiply(new Const(2 / items.length),
+        items.slice(items.length / 2).reduce((acc, cur) => new Add(acc, cur), ZERO)
+    )
 );
 
 
 const GeomMean = operationFactory.create(
     "GeomMean", "geom-mean",
-    (...terms) => terms.length > 0,
     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
-    (varName, ...terms) => {
+    (...items) => {
+        let terms = items.slice(0, items.length / 2);
         let tmp = terms.reduce((acc, cur) => new Multiply(acc, cur), ONE);
-        return new Multiply(new Const(1 / terms.length), new Divide(
-                new Multiply(new Sign(tmp), tmp.diff(varName)),
-                new Pow(new GeomMean(...terms), new Const(terms.length - 1))
-            )
-        )
-    },
-    function (...funcs) { return new GeomMean(...funcs); },
-    commutativeEquals
+        let tmpDiff = ZERO;
+        for (let i = 0; i < terms.length; i++) {
+            tmpDiff = new Add(tmpDiff, new Multiply(
+                terms.slice(0, i).reduce((acc, cur) => new Multiply(acc, cur), ONE),
+                new Multiply(items[terms.length + i], terms.slice(i + 1).reduce((acc, cur) => new Multiply(acc, cur), ONE))
+            ))
+        }
+        return new Multiply(new Const(1 / terms.length), new Multiply(
+            new Divide(tmp, new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))),
+            tmpDiff
+        ))
+    }
 );
 
 
 const HarmMean = operationFactory.create(
     "HarmMean", "harm-mean",
-    (...terms) => terms.length > 0,
     (...a) => a.length / a.reduce((acc, cur) => acc + 1 / cur, 0),
-    (varName, ...terms) => new Multiply(new Const(1 / terms.length), new Multiply(
-            new Pow(new HarmMean(...terms), TWO),
-            terms.reduce((acc, cur) => new Add(acc, new Divide(cur.diff(varName), new Pow(cur, TWO))), ZERO)
-        )
-    ),
-    function (...funcs) { return new HarmMean(...funcs); },
-    commutativeEquals
+    (...items) => {
+        let terms = items.slice(0, items.length / 2);
+        let tmp = ZERO;
+        for (let i = 0; i < terms.length; i++) {
+            tmp = new Add(tmp, new Divide(items[terms.length + i], new Pow(terms[i], TWO)));
+        }
+        return new Multiply(
+            new Const(1 / terms.length),
+            new Multiply(new Pow(new HarmMean(...terms), TWO), tmp)
+        );
+    }
 );
 
 
@@ -353,8 +221,6 @@ function parse(expression) {
             stack.push(new op(...stack.splice(-op.prototype.evaluateImpl.length)));
         } else if (word in ARGUMENT_POSITION) {
             stack.push(new Variable(word));
-        } else if (word in CONSTANTS) {
-            stack.push(new CONSTANTS[word]);
         } else {
             stack.push(new Const(+word));
         }
@@ -362,12 +228,13 @@ function parse(expression) {
     return stack.pop();
 }
 
-const abstractParser = (function () {
+const expressionParser = (function () {
     function* tokenGenerator(expression) {
-        for (let match of expression.trim().matchAll(/[()]|[^()\s]+/g)) {
+        let exprTrim = expression.trim();
+        for (let match of exprTrim.matchAll(/[()]|[^()\s]+/g)) {
             yield {index: match.index, word: match[0]};
         }
-        return {index: expression.trim().length, word: ''};
+        return {index: exprTrim.length, word: ''};
     }
     function checkToken(token, expected, condition) {
         if (condition) { throw new ParseError(token.value.index, token.value.word, expected); }
@@ -418,9 +285,9 @@ const abstractParser = (function () {
 })();
 
 
-function parsePrefix(expression) { return abstractParser(expression, true); }
+function parsePrefix(expression) { return expressionParser(expression, true); }
 
-function parsePostfix(expression) { return abstractParser(expression, false); }
+function parsePostfix(expression) { return expressionParser(expression, false); }
 
 
 function errorPrototypeFactory(Constructor) {
@@ -439,24 +306,3 @@ errorPrototypeFactory(ParseError);
 
 function ParseFunctionArgumentsError(message) { this.message = message; }
 errorPrototypeFactory(ParseFunctionArgumentsError);
-
-
-function createArrayOfMultipliers(expr) {
-    let array = [];
-    if (expr.constructor === Multiply) {
-        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => { array.push(elem); });
-        createArrayOfMultipliers(expr.terms[1]).forEach((elem) => { array.push(elem); });
-    } else if (expr.constructor === Pow && expr.terms[1].value === 2) {
-        createArrayOfMultipliers(expr.terms[0]).forEach((elem) => { array.push(elem); array.push(elem); });
-    } else {
-        array.push(expr);
-    }
-    return array;
-}
-
-// println(parsePrefix("(+ 100x)"))
-// println(parsePostfix("(x y (2 3 +))"))
-// println(parsePrefix("10"))
-// println(parsePrefix("jdfhgkdhfj"))
-// println(parsePrefix("NaN"))
-// println(parsePrefix("Infinity"))
