@@ -27,42 +27,42 @@ const expressionFactory = (function () {
 })();
 
 
-// const operationFactory = (function () {
-//     function createString(expr, printFunc) {
-//         return expr.terms.map((term) => term[printFunc]()).join(' ');
-//     }
-//     const abstractOperation = Object.create(expressionFactory.abstractExpression, {
-//         evaluate: {value: function (...args) {
-//             return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
-//         }},
-//         diff: {value: function (varName) {
-//             return this.diffImpl(...this.terms, ...this.terms.map((term) => term.diff(varName)));
-//         }},
-//         toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
-//         prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
-//         postfix: {value: function () { return `(${createString(this, "postfix")} ${this.operator})`; }},
-//     });
-//     return Object.freeze({
-//         abstractOperation: abstractOperation,
-//         create: function(name, operator, evaluateImpl, diffImpl) {
-//             function Operation(...terms) {
-//                 if (terms.length === 0 || (evaluateImpl.length !== 0 && evaluateImpl.length !== terms.length)) {
-//                     throw new ArgumentsError(name, ...terms);
-//                 }
-//                 Object.defineProperty(this, "terms", {value: terms});
-//             }
-//             Object.defineProperty(Operation, "name", {value: name});
-//             Operation.prototype = Object.create(abstractOperation, {
-//                 constructor: {value: Operation},
-//                 evaluateImpl: {value: evaluateImpl},
-//                 diffImpl: {value: diffImpl},
-//                 operator: {value: operator},
-//             });
-//             OPERATIONS[operator] = Operation;
-//             return Operation;
-//         }
-//     })
-// })();
+const operationFactory = (function () {
+    function createString(expr, printFunc) {
+        return expr.terms.map((term) => term[printFunc]()).join(' ');
+    }
+    const abstractOperation = Object.create(expressionFactory.abstractExpression, {
+        evaluate: {value: function (...args) {
+            return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
+        }},
+        diff: {value: function (varName) {
+            return this.diffImpl(...this.terms, ...this.terms.map((term) => term.diff(varName)));
+        }},
+        toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
+        prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
+        postfix: {value: function () { return `(${createString(this, "postfix")} ${this.operator})`; }},
+    });
+    return Object.freeze({
+        abstractOperation: abstractOperation,
+        create: function(name, operator, evaluateImpl, diffImpl) {
+            function Operation(...terms) {
+                if (terms.length === 0 || (evaluateImpl.length !== 0 && evaluateImpl.length !== terms.length)) {
+                    throw new ArgumentsError(name, ...terms);
+                }
+                Object.defineProperty(this, "terms", {value: terms});
+            }
+            Object.defineProperty(Operation, "name", {value: name});
+            Operation.prototype = Object.create(abstractOperation, {
+                constructor: {value: Operation},
+                evaluateImpl: {value: evaluateImpl},
+                diffImpl: {value: diffImpl},
+                operator: {value: operator},
+            });
+            OPERATIONS[operator] = Operation;
+            return Operation;
+        }
+    })
+})();
 
 
 const Const = expressionFactory.create(
@@ -175,25 +175,25 @@ const ArithMean = operationFactory.create(
 );
 
 
-const GeomMean = operationFactory.create(
-    "GeomMean", "geom-mean",
-    (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
-    (...items) => {
-        let terms = items.slice(0, items.length / 2);
-        let tmp = terms.reduce((acc, cur) => new Multiply(acc, cur), ONE);
-        let tmpDiff = ZERO;
-        for (let i = 0; i < terms.length; i++) {
-            tmpDiff = new Add(tmpDiff, new Multiply(
-                terms.slice(0, i).reduce((acc, cur) => new Multiply(acc, cur), ONE),
-                new Multiply(items[terms.length + i], terms.slice(i + 1).reduce((acc, cur) => new Multiply(acc, cur), ONE))
-            ))
-        }
-        return new Multiply(new Const(1 / terms.length), new Multiply(
-            new Divide(tmp, new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))),
-            tmpDiff
-        ))
-    }
-);
+// const GeomMean = operationFactory.create(
+//     "GeomMean", "geom-mean",
+//     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
+//     (...items) => {
+//         let terms = items.slice(0, items.length / 2);
+//         let tmp = terms.reduce((acc, cur) => new Multiply(acc, cur), ONE);
+//         let tmpDiff = ZERO;
+//         for (let i = 0; i < terms.length; i++) {
+//             tmpDiff = new Add(tmpDiff, new Multiply(
+//                 terms.slice(0, i).reduce((acc, cur) => new Multiply(acc, cur), ONE),
+//                 new Multiply(items[terms.length + i], terms.slice(i + 1).reduce((acc, cur) => new Multiply(acc, cur), ONE))
+//             ))
+//         }
+//         return new Multiply(new Const(1 / terms.length), new Multiply(
+//             new Divide(tmp, new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))),
+//             tmpDiff
+//         ))
+//     }
+// );
 
 
 const HarmMean = operationFactory.create(
