@@ -175,25 +175,22 @@ const ArithMean = operationFactory.create(
 );
 
 
-const GeomMean = operationFactory.create(
-    "GeomMean", "geom-mean",
-    (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
-    (...items) => {
-        let terms = items.slice(0, items.length / 2);
-        let tmp = terms.reduce((acc, cur) => new Multiply(acc, cur), ONE);
-        let tmpDiff = ZERO;
-        for (let i = 0; i < terms.length; i++) {
-            tmpDiff = new Add(tmpDiff, new Multiply(
-                terms.slice(0, i).reduce((acc, cur) => new Multiply(acc, cur), ONE),
-                new Multiply(items[terms.length + i], terms.slice(i + 1).reduce((acc, cur) => new Multiply(acc, cur), ONE))
-            ))
-        }
-        return new Multiply(new Const(1 / terms.length), new Multiply(
-            new Divide(tmp, new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))),
-            tmpDiff
-        ))
-    }
-);
+// const GeomMean = operationFactory.create(
+//     "GeomMean", "geom-mean",
+//     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
+//     (...items) => {
+//         let terms = items.slice(0, items.length / 2);
+//         return new Multiply(new Const(1 / terms.length), new Multiply(
+//             new Divide(
+//                 terms.reduce((acc, cur) => new Multiply(acc, cur), ONE),
+//                 new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))
+//             ),
+//             terms.reduce((tmpDiff, _, i) => new Add(tmpDiff,
+//                 terms.reduce((acc, cur, j) => new Multiply(acc, i === j ? items[terms.length + i] : cur), ONE)
+//             ), ZERO)
+//         ))
+//     }
+// );
 
 
 const HarmMean = operationFactory.create(
@@ -201,13 +198,12 @@ const HarmMean = operationFactory.create(
     (...a) => a.length / a.reduce((acc, cur) => acc + 1 / cur, 0),
     (...items) => {
         let terms = items.slice(0, items.length / 2);
-        let tmp = ZERO;
-        for (let i = 0; i < terms.length; i++) {
-            tmp = new Add(tmp, new Divide(items[terms.length + i], new Pow(terms[i], TWO)));
-        }
         return new Multiply(
             new Const(1 / terms.length),
-            new Multiply(new Pow(new HarmMean(...terms), TWO), tmp)
+            new Multiply(
+                new Pow(new HarmMean(...terms), TWO),
+                terms.reduce((acc, cur, i) => new Add(acc, new Divide(items[terms.length + i], new Pow(cur, TWO))), ZERO)
+            )
         );
     }
 );
@@ -231,7 +227,7 @@ function parse(expression) {
 const expressionParser = (function () {
     function* tokenGenerator(expression) {
         let exprTrim = expression.trim();
-        for (let match of exprTrim.matchAll(/[()]|[^()\s]+/g)) {
+        for (let match of exprTrim.matchAll(/\(|\)|[^()\s]+/g)) {
             yield {index: match.index, word: match[0]};
         }
         return {index: exprTrim.length, word: ''};
@@ -268,8 +264,8 @@ const expressionParser = (function () {
         } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
             return new Variable(token.value.word);
         } else {
-            checkToken(token, "variable or constant", isNaN(token.value.word));
-            return new Const(+token.value.word);
+            checkToken(token, "variable or constant", !isFinite(token.value.word));
+            return new Const(parseInt(token.value.word));
         }
     }
     return function (expression, isPrefix) {
