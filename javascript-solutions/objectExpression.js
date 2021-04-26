@@ -177,7 +177,7 @@ const ArithMean = operationFactory.create(
 
 const GeomMean = operationFactory.create(
     "GeomMean", "geom-mean",
-    (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
+    (...a) => Math.pow(a.reduce((acc, cur) => Math.abs(acc * cur), 1), (1 / a.length)),
     (terms, termsDiff) => {
         return new Multiply(new Const(1 / terms.length), new Multiply(
             new Divide(
@@ -186,7 +186,7 @@ const GeomMean = operationFactory.create(
             ),
             terms.reduce((mulDiff, _, i) => new Add(
                 mulDiff,
-                terms.reduce((acc, cur, j) => new Multiply(acc, i === j ? termsDiff[i] : cur), ONE)), ZERO)
+                terms.reduce((acc, cur, j) => new Multiply(acc, i !== j ? cur : termsDiff[i]), ONE)), ZERO)
         ))
     }
 );
@@ -223,57 +223,60 @@ function parse(expression) {
 }
 
 const expressionParser = (function () {
-    function* tokenGenerator(expression) {
-        let exprTrim = expression.trim();
-        for (let match of exprTrim.matchAll(/\(|\)|[^()\s]+/g)) {
-            yield {index: match.index, word: match[0]};
+    function checkToken(token, expected, condition = false) {
+        if (token.done) {
+            throw new UnexpectedEndOfExpression(expected);
+        } else if (condition) {
+            throw new ParseError(token.value.index, token.value[0], expected);
         }
-        return {index: exprTrim.length, word: ''};
-    }
-    function checkToken(token, expected, condition) {
-        if (condition) { throw new ParseError(token.value.index, token.value.word, expected); }
     }
     function parseRec (token, gen, isPrefix) {
-        checkToken(token, "bracket expression, variable or constant", token.done);
-        if (token.value.word === '(') {
+        checkToken(token, "bracket expression, variable or constant");
+        if (token.value[0] === '(') {
             let op, items = [];
             let beginToken = token;
             token = gen.next();
             if (isPrefix) {
-                checkToken(token, "operator", token.done || !OPERATIONS.hasOwnProperty(token.value.word));
-                op = OPERATIONS[token.value.word];
+                checkToken(token, "operator", token.done || !OPERATIONS.hasOwnProperty(token.value[0]));
+                op = OPERATIONS[token.value[0]];
                 token = gen.next();
-            }
-            while (!token.done && token.value.word !== ')' && (isPrefix || !OPERATIONS.hasOwnProperty(token.value.word))) {
-                items.push(parseRec(token, gen, isPrefix));
+                while (!token.done && token.value[0] !== ')') {
+                    items.push(parseRec(token, gen, isPrefix));
+                    token = gen.next();
+                }
+                checkToken(token, ")");
+            } else {
+                while (!token.done && token.value[0] !== ')' && !OPERATIONS.hasOwnProperty(token.value[0])) {
+                    items.push(parseRec(token, gen, isPrefix));
+                    token = gen.next();
+                }
+                checkToken(token, "operator", token.done || token.value[0] === ')');
+                op = OPERATIONS[token.value[0]];
                 token = gen.next();
+                checkToken(token, ")", token.done || token.value[0] !== ')');
             }
-            if (!isPrefix) {
-                checkToken(token, "operator", token.done || token.value.word === ')');
-                op = OPERATIONS[token.value.word];
-                token = gen.next();
-            }
-            checkToken(token, ')', token.done || token.value.word !== ')');
             try {
                 return new op(...items);
             } catch (e) {
                 throw new ParseFunctionArgumentsError(`On positions ${beginToken.value.index + 1}-${token.value.index + 1}: ${e.message}`);
             }
-        } else if (ARGUMENT_POSITION.hasOwnProperty(token.value.word)) {
-            return new Variable(token.value.word);
+        } else if (ARGUMENT_POSITION.hasOwnProperty(token.value[0])) {
+            return new Variable(token.value[0]);
         } else {
-            checkToken(token, "variable or constant", !isFinite(token.value.word));
-            return new Const(parseInt(token.value.word));
+            checkToken(token, "variable or constant", !isFinite(token.value[0]));
+            return new Const(parseInt(token.value[0]));
         }
     }
     return (isPrefix) => (expression) => {
         if (expression.length === 0) {
-            throw new ParseError(0, '', "bracket expression, variable or constant");
+            throw new ParseError(0, ' ', "bracket expression, variable or constant");
         }
-        const gen = tokenGenerator(expression);
+        const gen = expression.trim().matchAll(/\(|\)|[^()\s]+/g);
         let res = parseRec(gen.next(), gen, isPrefix);
         let token = gen.next();
-        checkToken(token, "end of expression", !token.done);
+        if (!token.done) {
+            throw new ParseError(token.value.index, token.value[0], "end of expression");
+        }
         return res;
     }
 })();
@@ -292,10 +295,12 @@ function ArgumentsError(funcName, ...args) { this.message = `Invalid arguments o
 errorPrototypeFactory(ArgumentsError);
 
 function ParseError(begin, word, expected) {
-    this.message = `Invalid symbol on positions: ${begin + 1}-${begin + Math.max(1, word.length)}\n`
-        + `Expected: ${expected}\nFound: '${word}'`;
+    this.message = `Invalid symbol on positions: ${begin + 1}-${begin + word.length}\nExpected: ${expected}\nFound: ${word}`;
 }
 errorPrototypeFactory(ParseError);
+
+function UnexpectedEndOfExpression(expected) { this.message = `Unexpected end of expression: Expected: ${expected}`; }
+errorPrototypeFactory(UnexpectedEndOfExpression);
 
 function ParseFunctionArgumentsError(message) { this.message = message; }
 errorPrototypeFactory(ParseFunctionArgumentsError);
