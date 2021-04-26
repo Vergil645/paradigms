@@ -175,25 +175,25 @@ const ArithMean = operationFactory.create(
 );
 
 
-// const GeomMean = operationFactory.create(
-//     "GeomMean", "geom-mean",
-//     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
-//     (...items) => {
-//         let terms = items.slice(0, items.length / 2);
-//         let tmp = terms.reduce((acc, cur) => new Multiply(acc, cur), ONE);
-//         let tmpDiff = ZERO;
-//         for (let i = 0; i < terms.length; i++) {
-//             tmpDiff = new Add(tmpDiff, new Multiply(
-//                 terms.slice(0, i).reduce((acc, cur) => new Multiply(acc, cur), ONE),
-//                 new Multiply(items[terms.length + i], terms.slice(i + 1).reduce((acc, cur) => new Multiply(acc, cur), ONE))
-//             ))
-//         }
-//         return new Multiply(new Const(1 / terms.length), new Multiply(
-//             new Divide(tmp, new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))),
-//             tmpDiff
-//         ))
-//     }
-// );
+const GeomMean = operationFactory.create(
+    "GeomMean", "geom-mean",
+    (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
+    (...items) => {
+        let terms = items.slice(0, items.length / 2);
+        let tmp = terms.reduce((acc, cur) => new Multiply(acc, cur), ONE);
+        let tmpDiff = ZERO;
+        for (let i = 0; i < terms.length; i++) {
+            tmpDiff = new Add(tmpDiff, new Multiply(
+                terms.slice(0, i).reduce((acc, cur) => new Multiply(acc, cur), ONE),
+                new Multiply(items[terms.length + i], terms.slice(i + 1).reduce((acc, cur) => new Multiply(acc, cur), ONE))
+            ))
+        }
+        return new Multiply(new Const(1 / terms.length), new Multiply(
+            new Divide(tmp, new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))),
+            tmpDiff
+        ))
+    }
+);
 
 
 const HarmMean = operationFactory.create(
