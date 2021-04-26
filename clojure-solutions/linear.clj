@@ -42,7 +42,7 @@
   (fn [m & ms]
     {:pre [(let [mms (cons m ms)]
              (and (every? matrix? mms) (apply == (mapv m-height mms)) (apply == (mapv m-width mms))))]}
-    (apply mapv f m ms)))
+    (apply mapv #(apply mapv f %&) m ms)))
 (defn m-v [f]
   (fn [m v]
     {:pre [(matrix? m) (vecs? v)]}
@@ -53,10 +53,10 @@
     (mapv (fn [mx] (mapv #(apply f % nums) mx)) m)))
 
 ;Matrices
-(def m+ (m-ms v+))
-(def m- (m-ms v-))
-(def m* (m-ms v*))
-(def md (m-ms vd))
+(def m+ (m-ms +))
+(def m- (m-ms -))
+(def m* (m-ms *))
+(def md (m-ms /))
 (def m*s (m-nums *))
 (def m*v (m-v scalar))
 (defn transpose [m]
