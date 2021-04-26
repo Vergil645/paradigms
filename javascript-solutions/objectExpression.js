@@ -36,7 +36,7 @@ const operationFactory = (function () {
             return this.evaluateImpl(...this.terms.map(expr => expr.evaluate(...args)));
         }},
         diff: {value: function (varName) {
-            return this.diffImpl(...this.terms, ...this.terms.map((term) => term.diff(varName)));
+            return this.diffImpl(this.terms, this.terms.map((term) => term.diff(varName)));
         }},
         toString: {value: function () { return `${createString(this, "toString")} ${this.operator}`; }},
         prefix: {value: function () { return `(${this.operator} ${createString(this, "prefix")})`; }},
@@ -91,28 +91,28 @@ const Variable = expressionFactory.create(
 const Add = operationFactory.create(
     "Add", "+",
     (x, y) => x + y,
-    (f, g, df, dg) => new Add(df, dg)
+    (_, [df, dg]) => new Add(df, dg)
 );
 
 
 const Subtract = operationFactory.create(
     "Subtract", "-",
     (x, y) => x - y,
-    (f, g, df, dg) => new Subtract(df, dg)
+    (_, [df, dg]) => new Subtract(df, dg)
 );
 
 
 const Multiply = operationFactory.create(
     "Multiply", "*",
     (x, y) => x * y,
-    (f, g, df, dg) => new Add(new Multiply(f, dg), new Multiply(df, g))
+    ([f, g], [df, dg]) => new Add(new Multiply(f, dg), new Multiply(df, g))
 );
 
 
 const Divide = operationFactory.create(
     "Divide", "/",
     (x, y) => x / y,
-    (f, g, df, dg) => new Divide(
+    ([f, g], [df, dg]) => new Divide(
         new Subtract(new Multiply(df, g), new Multiply(f, dg)),
         new Multiply(g, g)
     )
@@ -122,14 +122,14 @@ const Divide = operationFactory.create(
 const Negate = operationFactory.create(
     "Negate", "negate",
     (x) => -x,
-    (f, df) => new Negate(df)
+    (_, [df]) => new Negate(df)
 );
 
 
 const Hypot = operationFactory.create(
     "Hypot", "hypot",
     (x, y) => x * x + y * y,
-    (f, g, df, dg) => new Add(
+    ([f, g], [df, dg]) => new Add(
         new Multiply(TWO, new Multiply(f, df)),
         new Multiply(TWO, new Multiply(g, dg))
     )
@@ -139,7 +139,7 @@ const Hypot = operationFactory.create(
 const HMean = operationFactory.create(
     "HMean", "hmean",
     (x, y) => 2 / (1 / x + 1 / y),
-    (f, g, df, dg) => new Divide(
+    ([f, g], [df, dg]) => new Divide(
         new Multiply(TWO, new Add(
             new Multiply(new Pow(g, TWO), df),
             new Multiply(new Pow(f, TWO), dg))
@@ -152,7 +152,7 @@ const HMean = operationFactory.create(
 const Pow = operationFactory.create(
     "Pow", "^",
     (x, y) => x ** y,
-    (f, g, df, dg) => new Multiply(
+    ([f, g], [df, dg]) => new Multiply(
         new Pow(f, new Subtract(g, ONE)),
         new Add(new Multiply(df, g), new Multiply(new Multiply(f, new Log(f)), dg))
     )
@@ -162,47 +162,46 @@ const Pow = operationFactory.create(
 const Log = operationFactory.create(
     "Log", "log",
     Math.log,
-    (f, df) => new Divide(df, f)
+    ([f], [df]) => new Divide(df, f)
 );
 
 
 const ArithMean = operationFactory.create(
     "ArithMean", "arith-mean",
     (...a) => a.reduce((acc, cur) => acc + cur, 0) / a.length,
-    (...items) => new Multiply(new Const(2 / items.length),
-        items.slice(items.length / 2).reduce((acc, cur) => new Add(acc, cur), ZERO)
+    (terms, termsDiff) => new Multiply(new Const(1 / terms.length),
+        termsDiff.reduce((acc, cur) => new Add(acc, cur), ZERO)
     )
 );
 
 
-const GeomMean = operationFactory.create(
-    "GeomMean", "geom-mean",
-    (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
-    (...items) => {
-        let terms = items.slice(0, items.length / 2);
-        return new Multiply(new Const(1 / terms.length), new Multiply(
-            new Divide(
-                terms.reduce((acc, cur) => new Multiply(acc, cur), ONE),
-                new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))
-            ),
-            terms.reduce((tmpDiff, _, i) => new Add(tmpDiff,
-                terms.reduce((acc, cur, j) => new Multiply(acc, i === j ? items[terms.length + i] : cur), ONE)
-            ), ZERO)
-        ))
-    }
-);
+// const GeomMean = operationFactory.create(
+//     "GeomMean", "geom-mean",
+//     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
+//     (terms, termsDiff) => {
+//         return new Multiply(new Const(1 / terms.length), new Multiply(
+//             new Divide(
+//                 terms.reduce((acc, cur) => new Multiply(acc, cur), ONE),
+//                 new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))
+//             ),
+//             terms.reduce((mulDiff, _, i) => new Add(mulDiff,
+//                 terms.reduce((acc, cur, j) => new Multiply(acc, i === j ? termsDiff[i] : cur), ONE)),
+//                 ZERO
+//             )
+//         ))
+//     }
+// );
 
 
 const HarmMean = operationFactory.create(
     "HarmMean", "harm-mean",
     (...a) => a.length / a.reduce((acc, cur) => acc + 1 / cur, 0),
-    (...items) => {
-        let terms = items.slice(0, items.length / 2);
+    (terms, termsDiff) => {
         return new Multiply(
             new Const(1 / terms.length),
             new Multiply(
                 new Pow(new HarmMean(...terms), TWO),
-                terms.reduce((acc, cur, i) => new Add(acc, new Divide(items[terms.length + i], new Pow(cur, TWO))), ZERO)
+                terms.reduce((acc, cur, i) => new Add(acc, new Divide(termsDiff[i], new Pow(cur, TWO))), ZERO)
             )
         );
     }
