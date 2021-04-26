@@ -175,22 +175,22 @@ const ArithMean = operationFactory.create(
 );
 
 
-// const GeomMean = operationFactory.create(
-//     "GeomMean", "geom-mean",
-//     (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
-//     (...items) => {
-//         let terms = items.slice(0, items.length / 2);
-//         return new Multiply(new Const(1 / terms.length), new Multiply(
-//             new Divide(
-//                 terms.reduce((acc, cur) => new Multiply(acc, cur), ONE),
-//                 new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))
-//             ),
-//             terms.reduce((tmpDiff, _, i) => new Add(tmpDiff,
-//                 terms.reduce((acc, cur, j) => new Multiply(acc, i === j ? items[terms.length + i] : cur), ONE)
-//             ), ZERO)
-//         ))
-//     }
-// );
+const GeomMean = operationFactory.create(
+    "GeomMean", "geom-mean",
+    (...a) => a.reduce((acc, cur) => Math.abs(acc * cur), 1) ** (1 / a.length),
+    (...items) => {
+        let terms = items.slice(0, items.length / 2);
+        return new Multiply(new Const(1 / terms.length), new Multiply(
+            new Divide(
+                terms.reduce((acc, cur) => new Multiply(acc, cur), ONE),
+                new Pow(new GeomMean(...terms), new Const(2 * terms.length - 1))
+            ),
+            terms.reduce((tmpDiff, _, i) => new Add(tmpDiff,
+                terms.reduce((acc, cur, j) => new Multiply(acc, i === j ? items[terms.length + i] : cur), ONE)
+            ), ZERO)
+        ))
+    }
+);
 
 
 const HarmMean = operationFactory.create(
