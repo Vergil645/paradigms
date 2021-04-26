@@ -13,7 +13,9 @@
 (def add (binary-operation +))
 (def subtract (binary-operation -))
 (def multiply (binary-operation *))
-(def divide (binary-operation /))
+;(def divide (binary-operation /))
+(defn divide [expr-1 expr-2]
+  (fn [args-map] (/ (double (expr-1 args-map)) (double (expr-2 args-map)))))
 
 
 (println "constant --->" ((constant 2) {"x" 1}))
