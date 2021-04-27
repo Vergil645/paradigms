@@ -1,22 +1,42 @@
-;Factories
-(defn binary-operation [func]
-  (fn [expr-1 expr-2]
-    (fn [args-map] (func (double (expr-1 args-map)) (double (expr-2 args-map))))))
-
-(defn constant [value] (fn [_] value))
-
-(defn variable [name] (fn [args-map] (args-map name)))
-
-(defn negate [expr-1]
-  (fn [args-map] (- (expr-1 args-map))))
-
-(def add (binary-operation +))
-(def subtract (binary-operation -))
-(def multiply (binary-operation *))
-;(def divide (binary-operation /))
-(defn divide [expr-1 expr-2]
-  (fn [args-map] (/ (double (expr-1 args-map)) (double (expr-2 args-map)))))
+;;Factories
+(defn create-operation [func]
+  (fn
+    ([expr]
+     (fn [args-map] (func (expr args-map))))
+    ([expr & expressions]
+     (fn [args-map] (reduce func (expr args-map) (mapv #(% args-map) expressions))))))
+(defn create-unary-operation [func]
+  (fn [expr]
+    (fn [args-map] (func (expr args-map)))))
 
 
-(println "constant --->" ((constant 2) {"x" 1}))
-(println "variable --->" ((variable "x") {"x" 1}))
+;;Operations
+(defn _div
+  ([x] (/ (double x)))
+  ([x y] (/ (double x) (double y))))
+
+
+;;Expressions
+(defn constant [value]
+  (fn [_] value))
+(defn variable [name]
+  (fn [args-map] (args-map name)))
+
+(def negate (create-unary-operation -))
+(def add (create-operation +))
+(def subtract (create-operation -))
+(def multiply (create-operation *))
+(def divide (create-operation _div))
+
+
+;;Parser
+(def operators-map {'+ add, '- subtract, '* multiply, '/ divide, 'negate negate})
+(defn parseFunction [expr]
+  (letfn [(parse [lexeme]
+            (cond
+              (list? lexeme) (apply
+                               (operators-map (first lexeme))
+                               (mapv parse (rest lexeme)))
+              (number? lexeme) (constant lexeme)
+              :else (variable (str lexeme))))]
+    (parse (read-string expr))))
