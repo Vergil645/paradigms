@@ -1,10 +1,7 @@
 ;;Factories
 (defn create-operation [func]
-  (fn
-    ([expr]
-     (fn [args-map] (func (expr args-map))))
-    ([expr & expressions]
-     (fn [args-map] (reduce func (expr args-map) (mapv #(% args-map) expressions))))))
+  (fn [& expressions]
+    (fn [args-map] (apply func (map #(% args-map) expressions)))))
 (defn create-unary-operation [func]
   (fn [expr]
     (fn [args-map] (func (expr args-map)))))
@@ -12,8 +9,8 @@
 
 ;;Operations
 (defn _div
-  ([x] (/ (double x)))
-  ([x y] (/ (double x) (double y))))
+  ([x] (/ x))
+  ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
 
 
 ;;Expressions
@@ -34,9 +31,7 @@
 (defn parseFunction [expr]
   (letfn [(parse [lexeme]
             (cond
-              (list? lexeme) (apply
-                               (operators-map (first lexeme))
-                               (mapv parse (rest lexeme)))
+              (list? lexeme) (apply (operators-map (first lexeme)) (mapv parse (rest lexeme)))
               (number? lexeme) (constant lexeme)
               :else (variable (str lexeme))))]
     (parse (read-string expr))))
