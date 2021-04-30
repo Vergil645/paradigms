@@ -13,7 +13,7 @@
 (defn _sqr
   [x] (* x x))
 (defn _varn
-  [x & xs] (- (apply _mean (_sqr x) (map #(* % %) xs)) (_sqr (apply _mean x xs))))
+  [x & xs] (- (apply _mean (_sqr x) (map _sqr xs)) (_sqr (apply _mean x xs))))
 
 
 ;;Expressions
