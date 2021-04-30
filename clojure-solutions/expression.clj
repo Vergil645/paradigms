@@ -9,19 +9,15 @@
   ([x] (/ x))
   ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
 
-(defn _sqr [x]
-  (* x x))
+(defn _sqr [x] (* x x))
 
 (defn at-least-one-arg [f]
   (fn [x & xs] (apply f (cons x xs))))
 
-(defn _mean [x & xs]
-  (let [all (cons x xs)]
-    (/ (apply + all) (count all))))
-
-(defn _varn [x & xs]
-  (let [all (cons x xs)]
-    (- (apply _mean (map _sqr all)) (_sqr (apply _mean all)))))
+(def _mean (at-least-one-arg
+             #(/ (apply + %&) (count %&))))
+(def _varn (at-least-one-arg
+             #(- (apply _mean (map _sqr %&)) (_sqr (apply _mean %&)))))
 
 
 ;;Expressions
