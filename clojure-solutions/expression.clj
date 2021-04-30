@@ -9,7 +9,8 @@
   ([x] (/ x))
   ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
 (defn _mean [x & xs]
-  (/ (apply + x xs) (inc (count xs))))
+  (let [all (cons x xs)]
+    (/ (apply + all) (count all))))
 (defn _sqr [x]
   (* x x))
 (defn _varn [x & xs]
@@ -18,9 +19,8 @@
 
 
 ;;Expressions
-; :NOTE: Функция
 (defn constant [value]
-  (fn [_] value))
+  (constantly value))
 (defn variable [name]
   (fn [args-map] (args-map name)))
 
@@ -34,17 +34,24 @@
 
 
 ;;Parser
-(def variable-names #{'x, 'y, 'z})
+(def variables-map
+  {'x (variable "x"),
+   'y (variable "y"),
+   'z (variable "z")})
 (def operators-map
-  {'+ add
-   '- subtract, '* multiply, '/ divide, 'negate negate, 'mean mean, 'varn varn})
+  {'+      add
+   '-      subtract,
+   '*      multiply,
+   '/      divide,
+   'negate negate,
+   'mean   mean,
+   'varn   varn})
 
-(defn parse-lexeme [lexeme]
+(defn parse-element [elem]
   (cond
-    (number? lexeme) (constant lexeme)
-    ; :NOTE: Новые переменные
-    (contains? variable-names lexeme) (variable (str (variable-names lexeme)))
-    (list? lexeme) (apply (operators-map (first lexeme)) (mapv parse-lexeme (rest lexeme)))))
+    (number? elem) (constant elem)
+    (contains? variables-map elem) (variables-map elem)
+    (list? elem) (apply (operators-map (first elem)) (mapv parse-element (rest elem)))))
 
 (defn parseFunction [expr]
-  (parse-lexeme (read-string expr)))
+  (parse-element (read-string expr)))
