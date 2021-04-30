@@ -8,6 +8,12 @@
 (defn _div
   ([x] (/ x))
   ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
+(defn _mean
+  [x & xs] (/ (apply + x xs) (inc (count xs))))
+(defn _sqr
+  [x] (* x x))
+(defn _varn
+  [x & xs] (- (apply _mean (_sqr x) (map #(* % %) xs)) (_sqr (apply _mean x xs))))
 
 
 ;;Expressions
@@ -21,11 +27,13 @@
 (def multiply (create-operation *))
 (def divide (create-operation _div))
 (def negate subtract)
+(def mean (create-operation _mean))
+(def varn (create-operation _varn))
 
 
 ;;Parser
 (def variable-names #{'x, 'y, 'z})
-(def operators-map {'+ add, '- subtract, '* multiply, '/ divide, 'negate negate})
+(def operators-map {'+ add, '- subtract, '* multiply, '/ divide, 'negate negate, 'mean mean, 'varn varn})
 (defn parse-lexeme [lexeme]
   (cond
     (number? lexeme) (constant lexeme)
