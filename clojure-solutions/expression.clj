@@ -8,11 +8,14 @@
 (defn _div
   ([x] (/ x))
   ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
+
 (defn _mean [x & xs]
   (let [all (cons x xs)]
     (/ (apply + all) (count all))))
+
 (defn _sqr [x]
   (* x x))
+
 (defn _varn [x & xs]
   (let [all (cons x xs)]
     (- (apply _mean (map _sqr all)) (_sqr (apply _mean all)))))
