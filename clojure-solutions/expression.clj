@@ -9,12 +9,15 @@
   ([x] (/ x))
   ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
 
+(defn _sqr [x]
+  (* x x))
+
+(defn at-least-one-arg [f]
+  (fn [x & xs] (apply f (cons x xs))))
+
 (defn _mean [x & xs]
   (let [all (cons x xs)]
     (/ (apply + all) (count all))))
-
-(defn _sqr [x]
-  (* x x))
 
 (defn _varn [x & xs]
   (let [all (cons x xs)]
@@ -22,8 +25,7 @@
 
 
 ;;Expressions
-(defn constant [value]
-  (constantly value))
+(def constant constantly)
 (defn variable [name]
   (fn [args-map] (args-map name)))
 
@@ -41,6 +43,7 @@
   {'x (variable "x"),
    'y (variable "y"),
    'z (variable "z")})
+
 (def operators-map
   {'+      add
    '-      subtract,
