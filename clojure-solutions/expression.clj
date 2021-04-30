@@ -7,7 +7,7 @@
 ;;Operations
 (defn _div
   ([x] (/ x))
-  ([x & xs] (reduce #(/ %1 (double %2)) x xs)))
+  ([x & xs] (/ (double x) (apply * xs))))
 
 (defn _sqr [x] (* x x))
 
