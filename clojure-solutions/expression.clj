@@ -1,12 +1,19 @@
-;;===========================FUNCTIONS=========================================
+;;===========================================FUNCTIONS=============================================
 
-;;Factories
+;;-------------------------------------------Factories---------------------------------------------
 (defn create-operation [func]
   (fn [& expressions]
     (fn [args-map] (apply func (map #(% args-map) expressions)))))
 
-
-;;Operations
+(defn create-parser [var-map op-map const]
+  (letfn [(parse-element [elem]
+            (cond
+              (number? elem) (const elem)
+              (contains? var-map elem) (var-map elem)
+              (list? elem) (apply (op-map (first elem)) (mapv parse-element (rest elem)))))]
+    (fn [expr]
+      (parse-element (read-string expr)))))
+;;------------------------------------------Operations---------------------------------------------
 (defn _div
   ([x] (/ x))
   ([x & xs] (/ (double x) (apply * xs))))
@@ -20,31 +27,27 @@
              #(/ (apply + %&) (count %&))))
 (def _varn (at-least-one-arg
              #(- (apply _mean (map _sqr %&)) (_sqr (apply _mean %&)))))
-
-
-;;Expressions
+;;------------------------------------------Expressions--------------------------------------------
 (def constant constantly)
 (defn variable [name]
   (fn [args-map] (args-map name)))
 
-(def add (create-operation +))
+(def add      (create-operation +))
 (def subtract (create-operation -))
 (def multiply (create-operation *))
-(def divide (create-operation _div))
-(def negate subtract)
-(def mean (create-operation _mean))
-(def varn (create-operation _varn))
-
-
-;;Parser
-(def variables-map
+(def divide   (create-operation _div))
+(def negate   subtract)
+(def mean     (create-operation _mean))
+(def varn     (create-operation _varn))
+;;---------------------------------------------Parser----------------------------------------------
+(def func-var-map
   {
    'x (variable "x")
    'y (variable "y")
    'z (variable "z")
    })
 
-(def operators-map
+(def func-op-map
   {
    '+      add
    '-      subtract
@@ -55,149 +58,92 @@
    'varn   varn
    })
 
-(defn parse-element [elem]
-  (cond
-    (number? elem) (constant elem)
-    (contains? variables-map elem) (variables-map elem)
-    (list? elem) (apply (operators-map (first elem)) (mapv parse-element (rest elem)))))
+(def parseFunction (create-parser func-var-map, func-op-map, constant))
 
-(defn parseFunction [expr]
-  (parse-element (read-string expr)))
-
-
-
-;;===============================OBJECTS=======================================
+;;============================================OBJECTS==============================================
 (load-file "proto.clj")
-
-;;Fields
+;;--------------------------------------------Fields-----------------------------------------------
 (def _value (field :value))
-(def _name (field :name))
-(def _term (field :term))
 (def _terms (field :terms))
-
-
-;;Methods
+;;--------------------------------------------Methods----------------------------------------------
 (def evaluate (method :evaluate))
-(def diff (method :diff))
+(def diff     (method :diff))
 (def toString (method :toString))
+;;---------------------------------------Object's factories----------------------------------------
+(defn create-object-expression [evaluate, diff, toString]
+  (let [ctor (fn [this, value]
+               (assoc this :value value))
+        proto
+        {
+         :toString toString
+         :evaluate evaluate
+         :diff     diff
+         }]
+    (constructor ctor proto)))
 
+(defn create-object-operation [oper, eval-func, diff-func]
+  (let [ctor (fn [this, & terms]
+               (assoc this :terms terms))
+        proto
+        {
+         :toString (fn [this]
+                     (str "(" oper (apply str (map #(str " " (toString %)) (_terms this))) ")"))
+         :evaluate (fn [this, args-map]
+                     (apply eval-func (map #(evaluate % args-map) (_terms this))))
+         :diff     (fn [this, var-name]
+                     (diff-func (_terms this) (map #(diff % var-name) (_terms this))))
+         }]
+    (constructor ctor proto)))
+;;------------------------------------------Declarations-------------------------------------------
+(declare Constant, Variable, Negate, Add, Subtract, Multiply, Divide)
+(declare -zero, -one)
+;;------------------------------------Differentiation functions------------------------------------
+(defn _neg-diff [_, terms-diff] (apply Negate terms-diff))
+(defn _add-diff [_, terms-diff] (apply Add terms-diff))
+(defn _sub-diff [_, terms-diff] (apply Subtract terms-diff))
 
-;;Constructors declaration
-(declare
-  Constant
-  Variable
-  Negate
-  Add
-  Subtract
-  Multiply
-  Divide
-  )
+(defn _mul-diff [terms, terms-diff]
+  (if (empty? terms)
+    -zero
+    (Add (apply Multiply (first terms-diff) (rest terms))
+         (Multiply (first terms) (_mul-diff (rest terms) (rest terms-diff))))))
 
+(defn _div-diff [terms, terms-diff]
+  (Subtract (apply Divide (first terms-diff) (rest terms))
+            (Multiply (apply Divide terms)
+                      (apply Add (map Divide (rest terms-diff) (rest terms))))))
+;;-------------------------------------------Constructors------------------------------------------
+(def Constant
+  (create-object-expression
+    (fn [this, _] (_value this))
+    (fn [_, _] -zero)
+    (fn [this] (format "%.1f" (double (_value this))))))
 
-;;Prototypes
-(def ConstantPrototype
-  {
-   :evaluate (fn [this _] (_value this))
-   :diff     (fn [_ _] (Constant 0))
-   :toString (fn [this] (format "%.1f" (_value this)))
-   })
-(def VariablePrototype
-  {
-   :evaluate (fn [this args-map] (args-map (_name this)))
-   :diff     (fn [this var-name]
-               (Constant (if (= (_name this) var-name) 1 0)))
-   :toString (fn [this] (_name this))
-   })
-(def NegatePrototype
-  {
-   :evaluate (fn [this args-map] (- (evaluate (_term this) args-map)))
-   :diff     (fn [this var-name] (Negate (diff (_term this) var-name)))
-   :toString (fn [this] (str "(negate " (toString (_term this)) ")"))
-   })
-(def AddPrototype
-  {
-   :evaluate (fn [this args-map] (apply + (map #(evaluate % args-map) (_terms this))))
-   :diff     (fn [this var-name] (apply Add (map #(diff % var-name) (_terms this))))
-   :toString (fn [this] (str "(+" (apply str (map #(str " " (toString %)) (_terms this))) ")"))
-   })
-(def SubtractPrototype
-  {
-   :evaluate (fn [this args-map] (apply - (map #(evaluate % args-map) (_terms this))))
-   :diff     (fn [this var-name] (apply Subtract (map #(diff % var-name) (_terms this))))
-   :toString (fn [this] (str "(-" (apply str (map #(str " " (toString %)) (_terms this))) ")"))
-   })
-(def MultiplyPrototype
-  {
-   :evaluate (fn [this args-map] (apply * (map #(evaluate % args-map) (_terms this))))
-   :diff     (fn [this var-name]
-               (let [this-terms (_terms this)
-                     terms-count (count this-terms)]
-                 (apply Add
-                        (for [i (range terms-count)]
-                          (apply Multiply
-                                 (for [j (range terms-count)]
-                                   (if (== i j)
-                                     (diff (this-terms j) var-name)
-                                     (this-terms j))))))))
-   :toString (fn [this] (str "(*" (apply str (map #(str " " (toString %)) (_terms this))) ")"))
-   })
-(def DividePrototype
-  {
-   :evaluate (fn [this args-map] (apply _div (map #(evaluate % args-map) (_terms this))))
-   :diff     (fn [this var-name]
-               (let [this-terms (_terms this)
-                     terms-count (count this-terms)]
-                 (Divide
-                   (apply Subtract
-                          (for [i (range terms-count)]
-                            (apply Multiply
-                                   (for [j (range terms-count)]
-                                     (if (== i j)
-                                       (diff (this-terms j) var-name)
-                                       (this-terms j))))))
-                   (apply Multiply (map #(Multiply % %) (rest this-terms))))))
-   :toString (fn [this] (str "(/" (apply str (map #(str " " (toString %)) (_terms this))) ")"))
-   })
+;;~~~~~~~Constants~~~~~~~~
+(def -zero (Constant 0))
+(def -one (Constant 1))
+;;~~~~~~~~~~~~~~~~~~~~~~~~
 
+(def Variable
+  (create-object-expression
+    (fn [this, args-map] (args-map (_value this)))
+    (fn [this, var-name] (if (= (_value this) var-name) -one -zero))
+    (fn [this] (_value this))))
 
-;;Constructors
-(defn _Constant [this value]
-  (assoc this :value (double value)))
-(def Constant (constructor _Constant ConstantPrototype))
-
-(defn _Variable [this name]
-  (assoc this :name name))
-(def Variable (constructor _Variable VariablePrototype))
-
-(defn _Negate [this term]
-  (assoc this :term term))
-(def Negate (constructor _Negate NegatePrototype))
-
-(defn _Add [this & terms]
-  (assoc this :terms (vec terms)))
-(def Add (constructor _Add AddPrototype))
-
-(defn _Subtract [this & terms]
-  (assoc this :terms (vec terms)))
-(def Subtract (constructor _Subtract SubtractPrototype))
-
-(defn _Multiply [this & terms]
-  (assoc this :terms (vec terms)))
-(def Multiply (constructor _Multiply MultiplyPrototype))
-
-(defn _Divide [this & terms]
-  (assoc this :terms (vec terms)))
-(def Divide (constructor _Divide DividePrototype))
-
-
-;;Parser
-(def object-variables-map
+(def Negate   (create-object-operation "negate"   -     _neg-diff))
+(def Add      (create-object-operation "+"        +     _add-diff))
+(def Subtract (create-object-operation "-"        -     _sub-diff))
+(def Multiply (create-object-operation "*"        *     _mul-diff))
+(def Divide   (create-object-operation "/"        _div  _div-diff))
+;;----------------------------------------------Parser---------------------------------------------
+(def object-var-map
   {
    'x (Variable "x")
    'y (Variable "y")
    'z (Variable "z")
    })
-(def object-operators-map
+
+(def object-op-map
   {
    '+      Add
    '-      Subtract
@@ -206,11 +152,5 @@
    'negate Negate
    })
 
-(defn object-parse-element [elem]
-  (cond
-    (number? elem) (Constant elem)
-    (contains? object-variables-map elem) (object-variables-map elem)
-    (list? elem) (apply (object-operators-map (first elem)) (mapv object-parse-element (rest elem)))))
-
-(defn parseObject [expr]
-  (object-parse-element (read-string expr)))
+(def parseObject (create-parser object-var-map, object-op-map, Constant))
+;;=================================================================================================
