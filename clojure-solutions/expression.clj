@@ -32,13 +32,13 @@
 (defn variable [name]
   (fn [args-map] (args-map name)))
 
-(def add      (create-operation +))
+(def add (create-operation +))
 (def subtract (create-operation -))
 (def multiply (create-operation *))
-(def divide   (create-operation _div))
-(def negate   subtract)
-(def mean     (create-operation _mean))
-(def varn     (create-operation _varn))
+(def divide (create-operation _div))
+(def negate subtract)
+(def mean (create-operation _mean))
+(def varn (create-operation _varn))
 ;;---------------------------------------------Parser----------------------------------------------
 (def func-var-map
   {
@@ -63,16 +63,18 @@
 ;;============================================OBJECTS==============================================
 (load-file "proto.clj")
 ;;--------------------------------------------Fields-----------------------------------------------
-(def _value (field :value))
-(def _terms (field :terms))
+(def -value (field :value))
+(def -terms (field :terms))
+(def -oper (field :oper))
+(def -eval-func (field :eval-func))
+(def -diff-func (field :diff-func))
 ;;--------------------------------------------Methods----------------------------------------------
-(def evaluate (method :evaluate))
-(def diff     (method :diff))
 (def toString (method :toString))
+(def evaluate (method :evaluate))
+(def diff (method :diff))
 ;;---------------------------------------Object's factories----------------------------------------
 (defn create-object-expression [evaluate, diff, toString]
-  (let [ctor (fn [this, value]
-               (assoc this :value value))
+  (let [ctor (fn [this, value] (assoc this :value value))
         proto
         {
          :toString toString
@@ -81,39 +83,46 @@
          }]
     (constructor ctor proto)))
 
+(def operation-proto
+  {
+   :toString (fn [this]
+               (str "(" (-oper this) (reduce #(str %1 " " (toString %2)) "" (-terms this)) ")"))
+   :evaluate (fn [this, args-map]
+               (apply (-eval-func this) (map #(evaluate % args-map) (-terms this))))
+   :diff     (fn [this, var-name]
+               ((-diff-func this) (-terms this) (map #(diff % var-name) (-terms this))))
+   })
+
 (defn create-object-operation [oper, eval-func, diff-func]
-  (let [ctor (fn [this, & terms]
-               (assoc this :terms terms))
+  (let [ctor (fn [this, & terms] (assoc this :terms terms))
         proto
         {
-         :toString (fn [this]
-                     (str "(" oper (apply str (map #(str " " (toString %)) (_terms this))) ")"))
-         :evaluate (fn [this, args-map]
-                     (apply eval-func (map #(evaluate % args-map) (_terms this))))
-         :diff     (fn [this, var-name]
-                     (diff-func (_terms this) (map #(diff % var-name) (_terms this))))
+         :prototype operation-proto
+         :oper      oper
+         :eval-func eval-func
+         :diff-func diff-func
          }]
     (constructor ctor proto)))
 ;;------------------------------------------Declarations-------------------------------------------
 (declare Constant, Variable, Negate, Add, Subtract, Multiply, Divide)
-(declare -zero, -one)
+(declare const-zero, const-one)
 ;;-------------------------------------------Constructors------------------------------------------
 (def Constant
   (create-object-expression
-    (fn [this, _] (_value this))
-    (fn [_, _] -zero)
-    (fn [this] (format "%.1f" (double (_value this))))))
+    (fn [this, _] (-value this))
+    (fn [_, _] const-zero)
+    (fn [this] (format "%.1f" (double (-value this))))))
 
 ;;~~~~~~~Constants~~~~~~~~
-(def -zero (Constant 0))
-(def -one (Constant 1))
+(def const-zero (Constant 0))
+(def const-one (Constant 1))
 ;;~~~~~~~~~~~~~~~~~~~~~~~~
 
 (def Variable
   (create-object-expression
-    (fn [this, args-map] (args-map (_value this)))
-    (fn [this, var-name] (if (= (_value this) var-name) -one -zero))
-    (fn [this] (_value this))))
+    (fn [this, args-map] (args-map (-value this)))
+    (fn [this, var-name] (if (= (-value this) var-name) const-one const-zero))
+    (fn [this] (-value this))))
 
 (def Negate
   (create-object-operation
@@ -139,18 +148,21 @@
     *
     (fn rec [terms, terms-diff]
       (if (empty? terms)
-        -zero
-        (Add (apply Multiply (first terms-diff) (rest terms))
-             (Multiply (first terms) (rec (rest terms) (rest terms-diff))))))))
+        const-zero
+        (Add
+          (apply Multiply (first terms-diff) (rest terms))
+          (Multiply (first terms) (rec (rest terms) (rest terms-diff))))))))
 
 (def Divide
   (create-object-operation
     "/"
     _div
     (fn [terms, terms-diff]
-      (Subtract (apply Divide (first terms-diff) (rest terms))
-                (Multiply (apply Divide terms)
-                          (apply Add (map Divide (rest terms-diff) (rest terms))))))))
+      (Subtract
+        (apply Divide (first terms-diff) (rest terms))
+        (Multiply
+          (apply Divide terms)
+          (apply Add (map Divide (rest terms-diff) (rest terms))))))))
 ;;----------------------------------------------Parser---------------------------------------------
 (def object-var-map
   {
