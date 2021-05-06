@@ -97,21 +97,6 @@
 ;;------------------------------------------Declarations-------------------------------------------
 (declare Constant, Variable, Negate, Add, Subtract, Multiply, Divide)
 (declare -zero, -one)
-;;------------------------------------Differentiation functions------------------------------------
-(defn _neg-diff [_, terms-diff] (apply Negate terms-diff))
-(defn _add-diff [_, terms-diff] (apply Add terms-diff))
-(defn _sub-diff [_, terms-diff] (apply Subtract terms-diff))
-
-(defn _mul-diff [terms, terms-diff]
-  (if (empty? terms)
-    -zero
-    (Add (apply Multiply (first terms-diff) (rest terms))
-         (Multiply (first terms) (_mul-diff (rest terms) (rest terms-diff))))))
-
-(defn _div-diff [terms, terms-diff]
-  (Subtract (apply Divide (first terms-diff) (rest terms))
-            (Multiply (apply Divide terms)
-                      (apply Add (map Divide (rest terms-diff) (rest terms))))))
 ;;-------------------------------------------Constructors------------------------------------------
 (def Constant
   (create-object-expression
@@ -130,11 +115,42 @@
     (fn [this, var-name] (if (= (_value this) var-name) -one -zero))
     (fn [this] (_value this))))
 
-(def Negate   (create-object-operation "negate"   -     _neg-diff))
-(def Add      (create-object-operation "+"        +     _add-diff))
-(def Subtract (create-object-operation "-"        -     _sub-diff))
-(def Multiply (create-object-operation "*"        *     _mul-diff))
-(def Divide   (create-object-operation "/"        _div  _div-diff))
+(def Negate
+  (create-object-operation
+    "negate"
+    -
+    (fn [_, terms-diff] (apply Negate terms-diff))))
+
+(def Add
+  (create-object-operation
+    "+"
+    +
+    (fn [_, terms-diff] (apply Add terms-diff))))
+
+(def Subtract
+  (create-object-operation
+    "-"
+    -
+    (fn [_, terms-diff] (apply Subtract terms-diff))))
+
+(def Multiply
+  (create-object-operation
+    "*"
+    *
+    (fn rec [terms, terms-diff]
+      (if (empty? terms)
+        -zero
+        (Add (apply Multiply (first terms-diff) (rest terms))
+             (Multiply (first terms) (rec (rest terms) (rest terms-diff))))))))
+
+(def Divide
+  (create-object-operation
+    "/"
+    _div
+    (fn [terms, terms-diff]
+      (Subtract (apply Divide (first terms-diff) (rest terms))
+                (Multiply (apply Divide terms)
+                          (apply Add (map Divide (rest terms-diff) (rest terms))))))))
 ;;----------------------------------------------Parser---------------------------------------------
 (def object-var-map
   {
