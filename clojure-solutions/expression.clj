@@ -146,7 +146,7 @@
   (Multiply
     (Divide
       (apply Multiply terms)
-      (Pow (apply GeomMean terms) (Constant (dec (* 2 (count terms)))))
+      (Pow (apply GeomMean terms) (Constant (dec (* (count terms) 2))))
       (Constant (count terms)))
     (mul-diff terms terms-diff)))
 
