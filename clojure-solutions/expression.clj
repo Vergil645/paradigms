@@ -104,10 +104,12 @@
          }]
     (constructor ctor proto)))
 ;;------------------------------------------Declarations-------------------------------------------
-(declare Constant, Variable, Negate, Add, Subtract, Multiply, Divide,
-         Pow, Log, ArithMean, GeomMean, HarmMean)
+(declare
+  Constant, Variable, Negate, Add, Subtract, Multiply, Divide,
+  Pow, Log, ArithMean, GeomMean, HarmMean
+  )
 (declare const-zero, const-one)
-;;----------------------------------------Secondary functions--------------------------------------
+;;-------------------------------------Differentiation functions-----------------------------------
 (defn neg-diff [_, terms-diff] (apply Negate terms-diff))
 
 (defn add-diff [_, terms-diff] (apply Add terms-diff))
