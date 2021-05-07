@@ -108,12 +108,53 @@
          Pow, Log, ArithMean, GeomMean, HarmMean)
 (declare const-zero, const-one)
 ;;----------------------------------------Secondary functions--------------------------------------
+(defn neg-diff [_, terms-diff] (apply Negate terms-diff))
+
+(defn add-diff [_, terms-diff] (apply Add terms-diff))
+
+(defn sub-diff [_, terms-diff] (apply Subtract terms-diff))
+
 (defn mul-diff [terms, terms-diff]
   (if (empty? terms)
     const-zero
     (Add
       (apply Multiply (first terms-diff) (rest terms))
       (Multiply (first terms) (mul-diff (rest terms) (rest terms-diff))))))
+
+(defn div-diff [terms, terms-diff]
+  (if (== (count terms) 1)
+    (Negate (Divide (first terms-diff) (first terms) (first terms)))
+    (Subtract
+      (apply Divide (first terms-diff) (rest terms))
+      (Multiply
+        (apply Divide terms)
+        (apply Add (map Divide (rest terms-diff) (rest terms)))))))
+
+(defn pow-diff [[f, g], [df, dg]]
+  (Multiply
+    (Pow f (Subtract g const-one))
+    (Add (Multiply df g) (Multiply f (Log f) dg))))
+
+(defn log-diff [[f], [df]] (Divide df f))
+
+(defn arith-mean-diff [terms, terms-diff]
+  (Divide (add-diff terms terms-diff) (Constant (count terms))))
+
+(defn geom-mean-diff [terms, terms-diff]
+  (Multiply
+    (Divide
+      (apply Multiply terms)
+      (Pow (apply GeomMean terms) (Constant (dec (* 2 (count terms)))))
+      (Constant (count terms)))
+    (mul-diff terms terms-diff)))
+
+(defn harm-mean-diff [terms, terms-diff]
+  (let [harm-mean (apply HarmMean terms)]
+    (Multiply
+      (Constant (_div (count terms)))
+      harm-mean
+      harm-mean
+      (apply Add (map #(Divide %2 %1 %1) terms terms-diff)))))
 ;;-------------------------------------------Constructors------------------------------------------
 (def Constant
   (create-object-expression
@@ -132,89 +173,37 @@
     (fn [this, var-name] (if (= (-value this) var-name) const-one const-zero))
     (fn [this] (-value this))))
 
-(def Negate
-  (create-object-operation
-    "negate"
-    -
-    (fn [_, terms-diff] (apply Negate terms-diff))))
+(def Negate (create-object-operation "negate" - neg-diff))
 
-(def Add
-  (create-object-operation
-    "+"
-    +
-    (fn [_, terms-diff] (apply Add terms-diff))))
+(def Add (create-object-operation "+" + add-diff))
 
-(def Subtract
-  (create-object-operation
-    "-"
-    -
-    (fn [_, terms-diff] (apply Subtract terms-diff))))
+(def Subtract (create-object-operation "-" - sub-diff))
 
-(def Multiply
-  (create-object-operation
-    "*"
-    *
-    mul-diff))
+(def Multiply (create-object-operation "*" * mul-diff))
 
-(def Divide
-  (create-object-operation
-    "/"
-    _div
-    (fn [terms, terms-diff]
-      (if (== (count terms) 1)
-        (Negate (Divide (first terms-diff) (first terms) (first terms)))
-        (Subtract
-          (apply Divide (first terms-diff) (rest terms))
-          (Multiply
-            (apply Divide terms)
-            (apply Add (map Divide (rest terms-diff) (rest terms)))))))))
+(def Divide (create-object-operation "/" _div div-diff))
+
+(def Pow (create-object-operation "pow" #(Math/pow %1 %2) pow-diff))
+
+(def Log (create-object-operation "log" #(Math/log %) log-diff))
 
 (def ArithMean
   (create-object-operation
     "arith-mean"
-    (fn [& xs] (_div (apply + xs) (count xs)))
-    (fn [terms, terms-diff]
-      (Divide (apply Add terms-diff) (Constant (count terms))))))
-
-(def Pow
-  (create-object-operation
-    "pow"
-    (fn [x, p] (Math/pow x p))
-    (fn [[f, g], [df, dg]]
-      (Multiply
-        (Pow f (Subtract g const-one))
-        (Add (Multiply df g) (Multiply f (Log f) dg))))))
-
-(def Log
-  (create-object-operation
-    "log"
-    (fn [x] (Math/log x))
-    (fn [[f], [df]]
-      (Divide df f))))
+    #(_div (apply + %&) (count %&))
+    arith-mean-diff))
 
 (def GeomMean
   (create-object-operation
     "geom-mean"
-    (fn [& xs] (Math/pow (Math/abs (double (apply * xs))) (_div (count xs))))
-    (fn [terms, terms-diff]
-      (Multiply
-        (Divide
-          (apply Multiply terms)
-          (Pow (apply GeomMean terms) (Constant (dec (* 2 (count terms)))))
-          (Constant (count terms)))
-        (mul-diff terms terms-diff)))))
+    #(Math/pow (Math/abs (double (apply * %&))) (_div (count %&)))
+    geom-mean-diff))
 
 (def HarmMean
   (create-object-operation
     "harm-mean"
-    (fn [& xs] (_div (count xs) (apply + (map _div xs))))
-    (fn [terms, terms-diff]
-      (let [harm-mean (apply HarmMean terms)]
-        (Multiply
-          (Constant (_div (count terms)))
-          harm-mean
-          harm-mean
-          (apply Add (map #(Divide %2 %1 %1) terms terms-diff)))))))
+    #(_div (count %&) (apply + (map _div %&)))
+    harm-mean-diff))
 ;;----------------------------------------------Parser---------------------------------------------
 (def object-var-map
   {
