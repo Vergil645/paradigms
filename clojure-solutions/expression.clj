@@ -108,7 +108,7 @@
   Constant, Variable, Negate, Add, Subtract, Multiply, Divide,
   Pow, Log, ArithMean, GeomMean, HarmMean
   )
-(declare const-zero, const-one)
+(declare const-zero, const-one, const-two)
 ;;-------------------------------------Differentiation functions-----------------------------------
 (defn neg-diff [_, terms-diff] (apply Negate terms-diff))
 
@@ -151,12 +151,10 @@
     (mul-diff terms terms-diff)))
 
 (defn harm-mean-diff [terms, terms-diff]
-  (let [harm-mean (apply HarmMean terms)]
-    (Multiply
-      (Constant (_div (count terms)))
-      harm-mean
-      harm-mean
-      (apply Add (map #(Divide %2 %1 %1) terms terms-diff)))))
+  (Multiply
+    (Constant (_div (count terms)))
+    (Pow (apply HarmMean terms) const-two)
+    (apply Add (map #(Divide %2 %1 %1) terms terms-diff))))
 ;;-------------------------------------------Constructors------------------------------------------
 (def Constant
   (create-object-expression
@@ -166,7 +164,8 @@
 
 ;;~~~~~~~~~~Constants~~~~~~~~~
 (def const-zero (Constant 0))
-(def const-one (Constant 1))
+(def const-one  (Constant 1))
+(def const-two  (Constant 2))
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (def Variable
