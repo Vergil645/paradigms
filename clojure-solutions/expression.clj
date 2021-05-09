@@ -1,6 +1,8 @@
-;;===========================================FUNCTIONS=============================================
+;;=================================================================================================
+;;========================================== FUNCTIONS ============================================
+;;=================================================================================================
 
-;;-------------------------------------------Factories---------------------------------------------
+;;------------------------------------------ Factories --------------------------------------------
 (defn create-operation [func]
   (fn [& expressions]
     (fn [args-map] (apply func (map #(% args-map) expressions)))))
@@ -13,7 +15,7 @@
               (list? elem) (apply (op-map (first elem)) (mapv parse-element (rest elem)))))]
     (fn [expr]
       (parse-element (read-string expr)))))
-;;------------------------------------------Operations---------------------------------------------
+;;----------------------------------------- Operations --------------------------------------------
 (defn _div
   ([x] (/ 1.0 (double x)))
   ([x & xs] (/ (double x) (apply * xs))))
@@ -27,7 +29,7 @@
              #(/ (apply + %&) (count %&))))
 (def _varn (at-least-one-arg
              #(- (apply _mean (map _sqr %&)) (_sqr (apply _mean %&)))))
-;;------------------------------------------Expressions--------------------------------------------
+;;----------------------------------------- Expressions -------------------------------------------
 (def constant constantly)
 (defn variable [name]
   (fn [args-map] (args-map name)))
@@ -39,7 +41,7 @@
 (def negate subtract)
 (def mean (create-operation _mean))
 (def varn (create-operation _varn))
-;;---------------------------------------------Parser----------------------------------------------
+;;-------------------------------------------- Parser ---------------------------------------------
 (def func-var-map
   {
    'x (variable "x")
@@ -60,26 +62,32 @@
 
 (def parseFunction (create-parser func-var-map, func-op-map, constant))
 
-;;============================================OBJECTS==============================================
+;;=================================================================================================
+;;=========================================== OBJECTS =============================================
+;;=================================================================================================
+
+;;------------------------------------------- Import ----------------------------------------------
 (load-file "proto.clj")
-;;--------------------------------------------Fields-----------------------------------------------
+;;------------------------------------------- Fields ----------------------------------------------
 (def -value (field :value))
 (def -terms (field :terms))
 (def -oper (field :oper))
 (def -eval-func (field :eval-func))
 (def -diff-func (field :diff-func))
-;;--------------------------------------------Methods----------------------------------------------
+;;------------------------------------------- Methods ---------------------------------------------
 (def toString (method :toString))
+(def toStringSuffix (method :toStringSuffix))
 (def evaluate (method :evaluate))
 (def diff (method :diff))
-;;---------------------------------------Object's factories----------------------------------------
+;;-------------------------------------- Object's factories ---------------------------------------
 (defn create-object-expression [evaluate, diff, toString]
   (let [ctor (fn [this, value] (assoc this :value value))
         proto
         {
-         :toString toString
-         :evaluate evaluate
-         :diff     diff
+         :toString       toString
+         :toStringSuffix toString
+         :evaluate       evaluate
+         :diff           diff
          }]
     (constructor ctor proto)))
 
@@ -87,6 +95,9 @@
   {
    :toString (fn [this]
                (str "(" (-oper this) " " (clojure.string/join " " (map toString (-terms this))) ")"))
+   :toStringSuffix
+             (fn [this]
+               (str "(" (clojure.string/join " " (map toStringSuffix (-terms this))) " " (-oper this) ")"))
    :evaluate (fn [this, args-map]
                (apply (-eval-func this) (map #(evaluate % args-map) (-terms this))))
    :diff     (fn [this, var-name]
@@ -103,13 +114,13 @@
          :diff-func diff-func
          }]
     (constructor ctor proto)))
-;;------------------------------------------Declarations-------------------------------------------
+;;----------------------------------------- Declarations ------------------------------------------
 (declare
   Constant, Variable, Negate, Add, Subtract, Multiply, Divide,
   Pow, Log, ArithMean, GeomMean, HarmMean
   )
 (declare const-zero, const-one, const-two)
-;;-------------------------------------Differentiation functions-----------------------------------
+;;------------------------------------ Differentiation functions ----------------------------------
 (defn neg-diff [_, terms-diff] (apply Negate terms-diff))
 
 (defn add-diff [_, terms-diff] (apply Add terms-diff))
@@ -155,17 +166,17 @@
     (Constant (_div (count terms)))
     (Pow (apply HarmMean terms) const-two)
     (apply Add (map #(Divide %2 %1 %1) terms terms-diff))))
-;;-------------------------------------------Constructors------------------------------------------
+;;------------------------------------------ Constructors -----------------------------------------
 (def Constant
   (create-object-expression
     (fn [this, _] (-value this))
     (fn [_, _] const-zero)
     (fn [this] (format "%.1f" (double (-value this))))))
 
-;;~~~~~~~~~~Constants~~~~~~~~~
+;;~~~~~~~~~ Constants ~~~~~~~~
 (def const-zero (Constant 0))
-(def const-one  (Constant 1))
-(def const-two  (Constant 2))
+(def const-one (Constant 1))
+(def const-two (Constant 2))
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (def Variable
@@ -205,7 +216,7 @@
     "harm-mean"
     #(_div (count %&) (apply + (map _div %&)))
     harm-mean-diff))
-;;----------------------------------------------Parser---------------------------------------------
+;;--------------------------------------------- Parser --------------------------------------------
 (def object-var-map
   {
    'x (Variable "x")
@@ -228,4 +239,37 @@
    })
 
 (def parseObject (create-parser object-var-map, object-op-map, Constant))
+
 ;;=================================================================================================
+;;===================================== Combinatorial parsers =====================================
+;;=================================================================================================
+
+;;------------------------------------------- Import ----------------------------------------------
+(load-file "parser.clj")
+;;---------------------------------------- Suffix parser ------------------------------------------
+(defparser parseObjectSuffix
+           *all-chars (mapv char (range 0 128))
+           *digit (+char (apply str (filter #(Character/isDigit (char %)) *all-chars)))
+           *letter (+char (apply str (filter #(Character/isLetter (char %)) *all-chars)))
+           *space (+char (apply str (filter #(Character/isWhitespace (char %)) *all-chars)))
+           *non-space (+char-not (apply str "()" (filter #(Character/isWhitespace (char %)) *all-chars)))
+
+           *ws (+ignore (+star *space))
+           *number (+map (comp Constant read-string)
+                         (+seqf str
+                                (+opt \-)
+                                (+str (+plus *digit))
+                                (+opt (+seqf str \. (+str (+plus *digit))))
+                                ))
+           *variable (+map (comp Variable str) (+char "xyz"))
+           *operator (+map (comp object-op-map symbol)
+                           (+or
+                             (+seqf str *non-space (+str (+plus *non-space)))
+                             (+map str (+char-not "xyz"))
+                             ))
+           *operation (+seqf (fn [x, y, z, w] (apply z y))
+                             \( (+star (+seqn 0 *ws (delay *value))) *ws *operator *ws \))
+           *value (+or *number *variable *operation)
+
+           *parseObjectSuffix (+seqn 0 *ws *value *ws)
+           )
