@@ -29,6 +29,12 @@
   [name, func]
   `(def ~name (create-operation ~func)))
 
+(defmacro def-func-oper
+  "Defines function operation"
+  [name, func]
+  `(defn ~name [& expressions#]
+     (fn [args-map#] (apply ~func (map #(% args-map#) expressions#)))))
+
 ;;------------------------------------- Evaluate functions ----------------------------------------
 
 (defn _div
@@ -94,8 +100,9 @@
 ;;------------------------------------------- Import ----------------------------------------------
 
 (load-file "proto.clj")
+(use '[clojure.string :only [join]])
 
-;;----------------------------------  Macros and definitions --------------------------------------
+;;------------------------------------------  Macros ----------------------------------------------
 
 (defmacro def-fields
   "Defines multiple fields"
@@ -107,8 +114,6 @@
   [& names]
   `(do ~@(mapv (fn [name] `(def ~name (method ~(keyword (str name))))) names)))
 
-(def join clojure.string/join)
-
 (defmacro def-obj-expr
   "Defines object expression"
   [name, evaluate, diff, toString]
@@ -119,9 +124,14 @@
   [name, op, eval-func, diff-func]
   `(def ~name (create-object-operation ~op ~eval-func ~diff-func)))
 
+(defmacro def-obj-un-oper
+  "Defines object unary operation"
+  [name, op, eval-func, diff-func]
+  `(def ~name (create-object-unary-operation ~op ~eval-func ~diff-func)))
+
 ;;------------------------------------------- Fields ----------------------------------------------
 
-(def-fields -value, -terms, -op, -eval-func, -diff-func)
+(def-fields -value, -terms, -arg, -op, -eval-func, -diff-func)
 
 ;;------------------------------------------- Methods ---------------------------------------------
 
@@ -143,35 +153,46 @@
 
 (def operation-proto
   {
-   :toString       (fn [this]
-                     (str "(" (-op this) " " (join " " (map toString (-terms this))) ")"))
+   :toString
+   (fn [this] (str "(" (-op this) " " (join " " (map toString (-terms this))) ")"))
 
-   :toStringSuffix (fn [this]
-                     (str "(" (join " " (map toStringSuffix (-terms this))) " " (-op this) ")"))
+   :toStringSuffix
+   (fn [this] (str "(" (join " " (map toStringSuffix (-terms this))) " " (-op this) ")"))
 
-   :toStringInfix  (fn [this]
-                     (let [f-str (toStringInfix (first (-terms this)))
-                           r (rest (-terms this))
-                           op (-op this)]
-                       (str "(" (reduce #(str %1 " " op " " (toStringInfix %2)) f-str r) ")")))
+   :toStringInfix
+   (fn [this]
+     (let [f (first (-terms this)) r (rest (-terms this)) op (-op this)]
+       (reduce #(str "(" %1 " " op " " (toStringInfix %2) ")") (toStringInfix f) r)))
 
-   :evaluate       (fn [this, args-map]
-                     (apply (-eval-func this) (map #(evaluate % args-map) (-terms this))))
+   :evaluate
+   (fn [this, args-map] (apply (-eval-func this) (map #(evaluate % args-map) (-terms this))))
 
-   :diff           (fn [this, var-name]
-                     ((-diff-func this) (-terms this) (map #(diff % var-name) (-terms this))))
+   :diff
+   (fn [this, var-name] ((-diff-func this) (-terms this) (map #(diff % var-name) (-terms this))))
    })
 
-(defn create-object-operation [op, eval-func, diff-func]
-  (let [ctor (fn [this, & terms] (assoc this :terms terms))
-        proto
-        {
-         :prototype operation-proto
-         :op        op
-         :eval-func eval-func
-         :diff-func diff-func
-         }]
-    (constructor ctor proto)))
+(defn create-object-operation
+  ([overload-map, op, eval-func, diff-func]
+   (let [ctor (fn [this, & terms] (assoc this :terms terms))
+         proto (merge
+                 {
+                  :prototype operation-proto
+                  :op        op
+                  :eval-func eval-func
+                  :diff-func diff-func
+                  }
+                 overload-map)]
+     (constructor ctor proto)))
+  ([op, eval-func, diff-func]
+   (create-object-operation {}, op, eval-func, diff-func)))
+
+(def create-object-unary-operation
+  (partial create-object-operation
+           {
+            :toStringInfix
+            (fn [this] (str (-op this) "(" (toStringInfix (first (-terms this))) ")"))
+            }
+           ))
 
 ;;----------------------------------------- Declarations ------------------------------------------
 
@@ -247,34 +268,16 @@
               (fn [this, var-name] (if (= (-value this) var-name) const-one const-zero))
               (fn [this] (-value this)))
 
-;(def Negate (create-object-operation "negate" - neg-diff)) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-(def Negate
-  (constructor
-    (fn [this, & terms] (assoc this :terms terms))
-    {
-     :toString       (fn [this] (str "(negate " (toString (first (-terms this))) ")"))
-     :toStringSuffix (fn [this] (str "(" (toStringSuffix (first (-terms this))) " negate)"))
-     :toStringInfix  (fn [this] (str "negate(" (toStringInfix (first (-terms this))) ")"))
-     :evaluate       (fn [this, args-map] (- (evaluate (first (-terms this)) args-map)))
-     :diff           (fn [this, var-name] (Negate (diff (first (-terms this)) var-name)))
-     }))
+(def-obj-un-oper Negate "negate" - neg-diff)
 
 (def-obj-oper Add "+" + add-diff)
-
 (def-obj-oper Subtract "-" - sub-diff)
-
 (def-obj-oper Multiply "*" * mul-diff)
-
 (def-obj-oper Divide "/" _div div-diff)
-
 (def-obj-oper Pow "pow" _pow pow-diff)
-
 (def-obj-oper Log "log" _log log-diff)
-
 (def-obj-oper ArithMean "arith-mean" _arith-mean arith-mean-diff)
-
 (def-obj-oper GeomMean "geom-mean" _geom-mean geom-mean-diff)
-
 (def-obj-oper HarmMean "harm-mean" _harm-mean harm-mean-diff)
 
 ;;--------------------------------------------- Parser --------------------------------------------
@@ -320,15 +323,13 @@
                            #(and
                               (not (Character/isDigit (char %)))
                               (not (Character/isWhitespace (char %)))
-                              (not (#{\( \) \[ \] \{ \}} %))
-                              )
+                              (not ((set "()[]{}") %)))
                            all-chars)))
 
 (def *integer (+str (+plus (+char digits))))
 (def *number (+seqf
                (comp Constant read-string str)
-               (+opt (+char "-")) *integer (+opt (+seqf str (+char ".") *integer))
-               ))
+               (+opt (+char "-")) *integer (+opt (+seqf str (+char ".") *integer))))
 
 (def *space (+char spaces))
 (def *ws (+ignore (+star *space)))
@@ -343,8 +344,7 @@
 (defparser parseObjectSuffix
            *operation (+seqf
                         #(apply %2 %1)
-                        (+ignore \() (+star (delay *value)) *ws *operator *ws (+ignore \))
-                        )
+                        (+ignore \() (+star (delay *value)) *ws *operator *ws (+ignore \)))
            *value (+seqn 0 *ws (+or *number *variable *operation) *ws)
            *parseObjectSuffix *value)
 
@@ -353,21 +353,16 @@
 (defparser parseObjectInfix
            (make-operation [val-1, [[op val-2], & tail]]
                            (if (empty? tail)
-                             (if op
-                               (op val-1 val-2)
-                               val-1
-                               )
-                             (make-operation (op val-1 val-2) tail)
-                             ))
+                             (if op (op val-1 val-2) val-1)
+                             (make-operation (op val-1 val-2) tail)))
            (*spec-op [& ops]
                      (+map
                        (comp object-op-map symbol)
-                       (apply +or (map #(apply +seqf str (map (comp +char str) (vec %))) ops))
-                       ))
+                       (apply +or (map #(apply +seqf str (map (comp +char str) (vec %))) ops))))
            oper-levels [
-                         ["+", "-"]
-                         ["*", "/"]
-                         ]
+                        ["+", "-"]
+                        ["*", "/"]
+                        ]
            element-lvl (count oper-levels)
            (*level [lvl]
                    (if (== lvl element-lvl)
@@ -376,9 +371,7 @@
                        (+seqf
                          make-operation
                          *next-level
-                         (+star (+seq (apply *spec-op (oper-levels lvl)) *next-level))
-                         ))
-                     ))
+                         (+star (+seq (apply *spec-op (oper-levels lvl)) *next-level))))))
            *unary-op (+seqf #(%1 %2) *operator (delay *element))
            *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( (*level 0) \))) *ws)
            *parseObjectInfix (*level 0))
