@@ -194,6 +194,15 @@
             }
            ))
 
+(def create-bitwise-operation
+  (partial create-object-operation
+           {
+            :evaluate
+            (fn [this, args-map]
+              (apply (-eval-func this) (map #(> (evaluate % args-map) 0) (-terms this))))
+            }
+           ))
+
 ;;----------------------------------------- Declarations ------------------------------------------
 
 (declare
@@ -264,8 +273,8 @@
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (def-obj-expr Variable
-              (fn [this, args-map] (args-map (-value this)))
-              (fn [this, var-name] (if (= (-value this) var-name) const-one const-zero))
+              (fn [this, args-map] (args-map (str (Character/toLowerCase (nth (-value this) 0)))))
+              (fn [this, var-name] (if (= (str (Character/toLowerCase (nth (-value this) 0))) var-name) const-one const-zero))
               (fn [this] (-value this)))
 
 (def-obj-un-oper Negate "negate" - neg-diff)
@@ -279,6 +288,10 @@
 (def-obj-oper ArithMean "arith-mean" _arith-mean arith-mean-diff)
 (def-obj-oper GeomMean "geom-mean" _geom-mean geom-mean-diff)
 (def-obj-oper HarmMean "harm-mean" _harm-mean harm-mean-diff)
+
+(def And (create-bitwise-operation "&&" #(apply bit-and (mapv (fn [b] (if (true? b) 1 0)) %&)) nil))
+(def Or (create-bitwise-operation "||" #(apply bit-or (mapv (fn [b] (if (true? b) 1 0)) %&)) nil))
+(def Xor (create-bitwise-operation "^^" #(apply bit-xor (mapv (fn [b] (if (true? b) 1 0)) %&)) nil))
 
 ;;--------------------------------------------- Parser --------------------------------------------
 
@@ -301,6 +314,9 @@
    'arith-mean ArithMean
    'geom-mean  GeomMean
    'harm-mean  HarmMean
+   (symbol "^^") Xor
+   (symbol "||") Or
+   (symbol "&&") And
    })
 
 (def parseObject (create-parser object-var-map, object-op-map, Constant))
@@ -333,7 +349,7 @@
 
 (def *ws (+ignore (+star (+char spaces))))
 
-(def *variable (+map (comp object-var-map symbol str) (+char "xyz")))
+(def *variable (+map Variable (+str (+plus (+char "xyzXYZ")))))
 
 (def *operator (+map (comp object-op-map symbol) (+str (+plus (+char op-chars)))))
 
@@ -357,7 +373,7 @@
                      (+map
                        (comp object-op-map symbol)
                        (apply +or (map #(apply +seqf str (map (comp +char str) (vec %))) ops))))
-           oper-levels [["+", "-"] ["*", "/"]]
+           oper-levels [["^^"] ["||"] ["&&"] ["+", "-"] ["*", "/"]]
            element-lvl (count oper-levels)
            (*level [lvl]
                    (if (== lvl element-lvl)
