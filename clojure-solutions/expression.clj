@@ -319,25 +319,23 @@
 (def digits (apply str (filter #(Character/isDigit (char %)) all-chars)))
 (def letters (apply str (filter #(Character/isLetter (char %)) all-chars)))
 (def spaces (apply str (filter #(Character/isWhitespace (char %)) all-chars)))
-(def op-chars (apply str (filter
-                           #(and
-                              (not (Character/isDigit (char %)))
-                              (not (Character/isWhitespace (char %)))
-                              (not ((set "()[]{}") %)))
-                           all-chars)))
+(def op-chars
+  (apply str (filter
+               #(and
+                  (not (or (Character/isDigit (char %)) (Character/isWhitespace (char %))))
+                  (not ((set "()[]{}") %)))
+               all-chars)))
 
 (def *integer (+str (+plus (+char digits))))
 (def *number (+seqf
                (comp Constant read-string str)
                (+opt (+char "-")) *integer (+opt (+seqf str (+char ".") *integer))))
 
-(def *space (+char spaces))
-(def *ws (+ignore (+star *space)))
+(def *ws (+ignore (+star (+char spaces))))
 
 (def *variable (+map (comp object-var-map symbol str) (+char "xyz")))
 
-(def *op-char (+char op-chars))
-(def *operator (+map (comp object-op-map symbol) (+str (+plus *op-char))))
+(def *operator (+map (comp object-op-map symbol) (+str (+plus (+char op-chars)))))
 
 ;;---------------------------------------- Suffix parser ------------------------------------------
 
@@ -359,10 +357,7 @@
                      (+map
                        (comp object-op-map symbol)
                        (apply +or (map #(apply +seqf str (map (comp +char str) (vec %))) ops))))
-           oper-levels [
-                        ["+", "-"]
-                        ["*", "/"]
-                        ]
+           oper-levels [["+", "-"] ["*", "/"]]
            element-lvl (count oper-levels)
            (*level [lvl]
                    (if (== lvl element-lvl)
