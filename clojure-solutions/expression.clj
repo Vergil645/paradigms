@@ -116,8 +116,10 @@
 
 (defmacro def-obj-expr
   "Defines object expression"
-  [name, evaluate, diff, toString]
-  `(def ~name (create-object-expression ~evaluate ~diff ~toString)))
+  ([name, evaluate, diff, toString]
+   `(def ~name (create-object-expression ~evaluate ~diff ~toString)))
+  ([name, overload-map, evaluate, diff, toString]
+   `(def ~name (create-object-expression ~overload-map ~evaluate ~diff ~toString))))
 
 (defmacro def-obj-oper
   "Defines object operation"
@@ -135,21 +137,25 @@
 
 ;;------------------------------------------- Methods ---------------------------------------------
 
-(def-methods toString, toStringSuffix, toStringInfix, evaluate, diff)
+(def-methods toString, toStringSuffix, toStringInfix, evaluate, diff,
+             get-first)
 
 ;;-------------------------------------- Object's factories ---------------------------------------
 
-(defn create-object-expression [evaluate, diff, toString]
-  (let [ctor (fn [this, value] (assoc this :value value))
-        proto
-        {
-         :toString       toString
-         :toStringSuffix toString
-         :toStringInfix  toString
-         :evaluate       evaluate
-         :diff           diff
-         }]
-    (constructor ctor proto)))
+(defn create-object-expression
+  ([overload-map, evaluate, diff, toString]
+   (let [ctor (fn [this, value] (assoc this :value value))
+         proto (merge {
+                       :toString       toString
+                       :toStringSuffix toString
+                       :toStringInfix  toString
+                       :evaluate       evaluate
+                       :diff           diff
+                       }
+                      overload-map)]
+     (constructor ctor proto)))
+  ([evaluate, diff, toString]
+   (create-object-expression {}, evaluate, diff, toString)))
 
 (def operation-proto
   {
@@ -188,11 +194,14 @@
 
 (def create-object-unary-operation
   (partial create-object-operation
-           {
-            :toStringInfix
-            (fn [this] (str (-op this) "(" (toStringInfix (first (-terms this))) ")"))
-            }
-           ))
+           {:toStringInfix
+            (fn [this] (str (-op this) "(" (toStringInfix (first (-terms this))) ")"))}))
+
+(def create-bitwise-operation
+  (partial create-object-operation
+           {:evaluate
+            (fn [this, args-map]
+              (apply (-eval-func this) (map #(if (> (evaluate % args-map) 0) 1 0) (-terms this))))}))
 
 ;;----------------------------------------- Declarations ------------------------------------------
 
@@ -264,8 +273,9 @@
 ;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (def-obj-expr Variable
-              (fn [this, args-map] (args-map (-value this)))
-              (fn [this, var-name] (if (= (-value this) var-name) const-one const-zero))
+              {:get-first (fn [this] (str (Character/toLowerCase (char (nth (-value this) 0)))))}
+              (fn [this, args-map] (args-map (get-first this)))
+              (fn [this, var-name] (if (= (get-first this) var-name) const-one const-zero))
               (fn [this] (-value this)))
 
 (def-obj-un-oper Negate "negate" - neg-diff)
@@ -274,11 +284,19 @@
 (def-obj-oper Subtract "-" - sub-diff)
 (def-obj-oper Multiply "*" * mul-diff)
 (def-obj-oper Divide "/" _div div-diff)
+
 (def-obj-oper Pow "pow" _pow pow-diff)
 (def-obj-oper Log "log" _log log-diff)
 (def-obj-oper ArithMean "arith-mean" _arith-mean arith-mean-diff)
 (def-obj-oper GeomMean "geom-mean" _geom-mean geom-mean-diff)
 (def-obj-oper HarmMean "harm-mean" _harm-mean harm-mean-diff)
+
+(def And (create-bitwise-operation "&&" bit-and nil))
+(def Or (create-bitwise-operation "||" bit-or nil))
+(def Xor (create-bitwise-operation "^^" bit-xor nil))
+(def Iff (create-bitwise-operation "<->" #(if (apply == %&) 1 0) nil))
+(def Impl (create-bitwise-operation "->" #(reduce (fn [x, y] (if (and (== x 1) (== y 0)) 0 1)) %&) nil))
+
 
 ;;--------------------------------------------- Parser --------------------------------------------
 
@@ -301,6 +319,11 @@
    'arith-mean ArithMean
    'geom-mean  GeomMean
    'harm-mean  HarmMean
+   (symbol "^^") Xor
+   (symbol "||") Or
+   (symbol "&&") And
+   (symbol "<->") Iff
+   (symbol "->") Impl
    })
 
 (def parseObject (create-parser object-var-map, object-op-map, Constant))
@@ -319,12 +342,19 @@
 (def digits (apply str (filter #(Character/isDigit (char %)) all-chars)))
 (def letters (apply str (filter #(Character/isLetter (char %)) all-chars)))
 (def spaces (apply str (filter #(Character/isWhitespace (char %)) all-chars)))
-(def op-chars
+(def op-chars1
   (apply str (filter
                #(and
-                  (not (or (Character/isDigit (char %)) (Character/isWhitespace (char %))))
-                  (not ((set "()[]{}") %)))
+                  (not (or (Character/isLetter (char %)) (Character/isDigit (char %)) (Character/isWhitespace (char %))))
+                  (not ((set "()[]{}xyzXYZ-") %)))
                all-chars)))
+(def op-chars (apply str (filter
+                           #(and
+                              (not (Character/isDigit (char %)))
+                              (not (Character/isWhitespace (char %)))
+                              (not (#{\( \) \[ \] \{ \}} %))
+                              )
+                           all-chars)))
 
 (def *integer (+str (+plus (+char digits))))
 (def *number (+seqf
@@ -333,7 +363,7 @@
 
 (def *ws (+ignore (+star (+char spaces))))
 
-(def *variable (+map (comp object-var-map symbol str) (+char "xyz")))
+(def *variable (+map Variable (+str (+plus (+char "xyzXYZ")))))
 
 (def *operator (+map (comp object-op-map symbol) (+str (+plus (+char op-chars)))))
 
@@ -347,28 +377,40 @@
            *parseObjectSuffix *value)
 
 ;;----------------------------------------- Infix parser ------------------------------------------
+(defn _check [p]
+  (fn [[c & cs]]
+    (if (and c (p c)) (-return nil (cons c cs)))))
 
 (defparser parseObjectInfix
            (make-operation [val-1, [[op val-2], & tail]]
                            (if (empty? tail)
                              (if op (op val-1 val-2) val-1)
                              (make-operation (op val-1 val-2) tail)))
-           (*spec-op [& ops]
+           (make-right-assoc [val-1, [[op val-2], & tail]]
+                             (if (empty? tail)
+                               (if op (op val-1 val-2) val-1)
+                               (op val-1 (make-right-assoc val-2 tail))))
+           (*spec-op [ops]
                      (+map
                        (comp object-op-map symbol)
-                       (apply +or (map #(apply +seqf str (map (comp +char str) (vec %))) ops))))
-           oper-levels [["+", "-"] ["*", "/"]]
+                       (apply +or (map #(apply +seqf str (conj
+                                                           (mapv (comp +char str) (vec %))
+                                                           (_check (comp not (set op-chars1)))))
+                                       ops))))
+           oper-levels [["<->"] ["->"] ["^^"] ["||"] ["&&"] ["+" "-"] ["*" "/"]]
            element-lvl (count oper-levels)
            (*level [lvl]
                    (if (== lvl element-lvl)
                      (delay *element)
                      (let [*next-level (*level (inc lvl))]
                        (+seqf
-                         make-operation
+                         (if (== lvl 1) make-right-assoc make-operation)
                          *next-level
-                         (+star (+seq (apply *spec-op (oper-levels lvl)) *next-level))))))
-           *unary-op (+seqf #(%1 %2) *operator (delay *element))
+                         (+star (+seq (*spec-op (oper-levels lvl)) *next-level))))))
+           *unary-op (+seqf #(%1 %2) (*spec-op ["negate"]) (delay *element))
            *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( (*level 0) \))) *ws)
            *parseObjectInfix (*level 0))
 
+;(println (parseObjectInfix "(x    -!   y   )  "))
+(println (toStringInfix (parseObjectInfix "(x    ->   y   )  ")))
 ;;=================================================================================================
