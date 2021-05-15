@@ -50,7 +50,6 @@
 (def-at-least-one-arg _varn #(- (apply _mean (map _sqr %&)) (_sqr (apply _mean %&))))
 
 (def _pow #(Math/pow %1 %2))
-(def _log #(Math/log %))
 (def _abs #(Math/abs (double %)))
 
 (def _arith-mean _mean)
@@ -427,7 +426,4 @@
 ;                     ))
 ;           *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( (*level 0) \))) *ws)
 ;           *parseObjectInfix (*level 0))
-
-;(println (parseObjectInfix "(x    -!   y   )  "))
-(println (toStringInfix (parseObjectInfix "(x    ->   y   )  ")))
 ;;=================================================================================================
