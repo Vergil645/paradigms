@@ -374,15 +374,6 @@
     (comp object-op-map symbol)
     (apply +or (map #(apply +seqf str (map (comp +char str) (vec (str %)))) (keys object-op-map)))))
 
-;;---------------------------------------- Suffix parser ------------------------------------------
-
-(defparser parseObjectSuffix
-           *operation (+seqf
-                        #(apply %2 %1)
-                        (+ignore \() (+star (delay *value)) *ws *operator *ws (+ignore \)))
-           *value (+seqn 0 *ws (+or *number *variable *operation) *ws)
-           *parseObjectSuffix *value)
-
 ;;----------------------------------------- Infix parser ------------------------------------------
 (defparser parseObjectInfix
            (make-operation [val-1, [[op val-2], & tail]]
