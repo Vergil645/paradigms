@@ -92,24 +92,6 @@
 
 (load-file "proto.clj")
 
-;;------------------------------------------- Fields ----------------------------------------------
-
-(defmacro def-fields
-  "Defines multiple fields"
-  [& names]
-  `(do ~@(mapv (fn [name] `(def ~name (field ~(keyword (subs (str name) 1))))) names)))
-
-(def-fields -value, -terms, -arg, -op, -eval-func, -diff-func)
-
-;;------------------------------------------- Methods ---------------------------------------------
-
-(defmacro def-methods
-  "Defines multiple methods"
-  [& names]
-  `(do ~@(mapv (fn [name] `(def ~name (method ~(keyword (str name))))) names)))
-
-(def-methods toString, toStringSuffix, toStringInfix, evaluate, diff, get-first)
-
 ;;------------------------------------- Secondary functions ---------------------------------------
 
 (def join clojure.string/join)
@@ -117,193 +99,201 @@
 (defn int-bool-int [x] (if (> x 0) 1 0))
 (defn bool-int [b] (if (true? b) 1 0))
 
-;;-------------------------------------- Object's factories ---------------------------------------
-
-;; Expression
-(defn create-obj-expr
-  ([overload-map, evaluate, diff, toString]
-   (let [ctor (fn [this, value] (assoc this :value value))
-         proto (merge {
-                       :toString       toString
-                       :toStringSuffix toString
-                       :toStringInfix  toString
-                       :evaluate       evaluate
-                       :diff           diff
-                       }
-                      overload-map)]
-     (constructor ctor proto)))
-  ([evaluate, diff, toString]
-   (create-obj-expr {}, evaluate, diff, toString)))
-
-(defmacro def-obj-expr
-  "Defines object expression"
-  ([name, evaluate, diff, toString]
-   `(def ~name (create-obj-expr ~evaluate ~diff ~toString)))
-  ([name, evaluate, diff, toString, overload-map]
-   `(def ~name (create-obj-expr ~overload-map ~evaluate ~diff ~toString))))
-
-;; Operation
-(def oper-proto
-  {
-   :toString
-   (fn [this] (str "(" (-op this) " " (join " " (map toString (-terms this))) ")"))
-
-   :toStringSuffix
-   (fn [this] (str "(" (join " " (map toStringSuffix (-terms this))) " " (-op this) ")"))
-
-   :toStringInfix
-   (fn [this]
-     (let [f (first (-terms this)) r (rest (-terms this)) op (-op this)]
-       (reduce #(str "(" %1 " " op " " (toStringInfix %2) ")") (toStringInfix f) r)))
-
-   :evaluate
-   (fn [this, args-map] (apply (-eval-func this) (map #(evaluate % args-map) (-terms this))))
-
-   :diff
-   (fn [this, var-name] ((-diff-func this) (-terms this) (map #(diff % var-name) (-terms this))))
-   })
-
-(defn create-obj-oper
-  ([overload-map, op, eval-func, diff-func]
-   (let [ctor (fn [this, & terms] (assoc this :terms terms))
-         proto (merge
-                 {
-                  :prototype oper-proto
-                  :op        op
-                  :eval-func eval-func
-                  :diff-func diff-func
-                  }
-                 overload-map)]
-     (constructor ctor proto)))
-  ([op, eval-func, diff-func]
-   (create-obj-oper {}, op, eval-func, diff-func)))
-
-(defmacro def-obj-oper
-  "Defines object operation"
-  ([name, op, eval-func, diff-func]
-   `(def ~name (create-obj-oper ~op ~eval-func ~diff-func)))
-  ([name, op, eval-func, diff-func, overload-map]
-   `(def ~name (create-obj-oper ~overload-map ~op ~eval-func ~diff-func))))
-
-;; Unary operation
-(def create-obj-un-oper
-  (partial create-obj-oper
-           {:toStringInfix
-            (fn [this] (str (-op this) "(" (toStringInfix (first (-terms this))) ")"))
-            }))
-
-(defmacro def-obj-un-oper
-  "Defines object unary operation"
-  [name, op, eval-func, diff-func]
-  `(def ~name (create-obj-un-oper ~op ~eval-func ~diff-func)))
-
-;; Boolean operation
-(def create-obj-bool-oper
-  (partial create-obj-oper
-           {:evaluate
-            (fn [this, args-map]
-              (apply (-eval-func this) (map #(int-bool-int (evaluate % args-map)) (-terms this))))
-            }))
-
-(defmacro def-obj-bool-oper
-  "Defines object boolean operation"
-  [name, op, eval-func, diff-func]
-  `(def ~name (create-obj-bool-oper ~op ~eval-func ~diff-func)))
-
-;; Right associative operation
-(def create-obj-right-assoc
-  (partial create-obj-oper
-           {:toStringInfix
-            (fn [this]
-              (let [rev (reverse (-terms this)) l (first rev) h (rest rev) op (-op this)]
-                (reduce #(str "(" (toStringInfix %2) " " op " " %1 ")") (toStringInfix l) h)))
-            }))
-
-(defmacro def-obj-right-assoc
-  "Defines right associative operation"
-  [name, op, eval-func, diff-func]
-  `(def ~name (create-obj-right-assoc ~op ~eval-func ~diff-func)))
-
 ;;----------------------------------------- Declarations ------------------------------------------
+(declare _Constant _Variable _Negate _Add _Subtract _Multiply _Divide
+         _ArithMean _GeomMean _HarmMean)
 
-(declare Constant Variable Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean)
 (declare const-zero const-one const-two)
 
-;;------------------------------------ Differentiation functions ----------------------------------
+(declare Constant Variable Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean)
 
-(defn neg-diff [_, terms-diff] (apply Negate terms-diff))
+;;-------------------------------------- Object's factories ---------------------------------------
 
-(defn add-diff [_, terms-diff] (apply Add terms-diff))
+(defclass _Expression
+          _
+          [value]
+          [toString [] (_value this)]
+          [toStringSuffix [] (_toString this)]
+          [toStringInfix [] (_toString this)]
+          )
 
-(defn sub-diff [_, terms-diff] (apply Subtract terms-diff))
+(defclass _Constant
+          _Expression
+          []
+          [evaluate [_] (_value this)]
+          [diff [_] const-zero]
+          [toString [] (format "%.1f" (double (_value this)))]
+          )
+(defclass _Variable
+          _Expression
+          []
+          [first-letter [] (str (Character/toLowerCase (char (nth (_value this) 0))))]
+          [evaluate [args-map] (args-map (_first-letter this))]
+          [diff [var-name] (if (= (_first-letter this) var-name) const-one const-zero)]
+          )
 
-(defn mul-diff [terms, terms-diff]
-  (if (empty? terms)
-    const-zero
-    (Add
-      (apply Multiply (first terms-diff) (rest terms))
-      (Multiply (first terms) (mul-diff (rest terms) (rest terms-diff))))))
+(defclass _Left-operation
+          _
+          [terms]
+          [op [] nil]
+          [eval-func [] nil]
+          [diff-func [terms terms-diff] nil]
+          [evaluate [args-map]
+           (apply _eval-func this (map #(_evaluate % args-map) (_terms this)))]
+          [diff [var-name]
+           (_diff-func this (_terms this) (map #(_diff % var-name) (_terms this)))]
+          [toString []
+           (str "(" (_op this) " " (join " " (map _toString (_terms this))) ")")]
+          [toStringSuffix []
+           (str "(" (join " " (map _toStringSuffix (_terms this))) " " (_op this) ")")]
+          [toStringInfix []
+           (let [f (first (_terms this)) r (rest (_terms this)) op (_op this)]
+             (reduce #(str "(" %1 " " op " " (_toStringInfix %2) ")") (_toStringInfix f) r))]
+          )
+(defclass _Un-operation
+          _Left-operation
+          []
+          [toStringInfix [] (str (_op this) "(" (_toStringInfix (first (_terms this))) ")")]
+          )
 
-(defn div-diff [terms, terms-diff]
-  (if (== (count terms) 1)
-    (Negate (Divide (first terms-diff) (first terms) (first terms)))
-    (Subtract
-      (apply Divide (first terms-diff) (rest terms))
-      (Multiply
-        (apply Divide terms)
-        (apply Add (map Divide (rest terms-diff) (rest terms)))))))
+(defclass _Negate
+          _Un-operation
+          []
+          [op [] "negate"]
+          [eval-func [& args] (apply - args)]
+          [diff-func [terms terms-diff] (_Negate terms-diff)]
+          )
+(defclass _Add
+          _Left-operation
+          []
+          [op [] "+"]
+          [eval-func [& args] (apply + args)]
+          [diff-func [terms terms-diff] (_Add terms-diff)]
+          )
+(defclass _Subtract
+          _Left-operation
+          []
+          [op [] "-"]
+          [eval-func [& args] (apply - args)]
+          [diff-func [terms terms-diff] (_Subtract terms-diff)]
+          )
+(defclass _Multiply
+          _Left-operation
+          []
+          [op [] "*"]
+          [eval-func [& args] (apply * args)]
+          [diff-func [terms terms-diff]
+           (second (reduce (fn [[f df] [g dg]]
+                             [(_Multiply [f g])
+                              (_Add [(_Multiply [f dg]) (_Multiply [df g])])])
+                           (map vector terms terms-diff)))]
+          )
+(defclass _Divide
+          _Left-operation
+          []
+          [op [] "/"]
+          [eval-func [& args] (apply _div args)]
+          [diff-func [terms terms-diff]
+           (if (== (count terms) 1)
+             (_Negate [(_Divide [(first terms-diff) (first terms) (first terms)])])
+             (_Subtract
+               [(_Divide (cons (first terms-diff) (rest terms)))
+                (_Multiply
+                  [(_Divide terms)
+                   (_Add (map Divide (rest terms-diff) (rest terms)))])]))]
+          )
 
-(defn arith-mean-diff [terms, terms-diff]
-  (Divide (add-diff terms terms-diff) (Constant (count terms))))
+(defclass _ArithMean
+          _Left-operation
+          []
+          [op [] "arith-mean"]
+          [eval-func [& args] (apply _arith-mean args)]
+          [diff-func [terms terms-diff]
+           (_Multiply [(_Add terms-diff) (_Constant (_div (count terms)))])]
+          )
+(defclass _GeomMean
+          _Left-operation
+          []
+          [op [] "geom-mean"]
+          [eval-func [& args] (apply _geom-mean args)]
+          [diff-func [terms terms-diff]
+           (_Multiply
+             [(_Constant (_div (count terms)))
+              (_GeomMean terms)
+              (_Add (map #(_Divide [%2 %1]) terms terms-diff))])]
+          )
+(defclass _HarmMean
+          _Left-operation
+          []
+          [op [] "harm-mean"]
+          [eval-func [& args] (apply _harm-mean args)]
+          [diff-func [terms terms-diff]
+           (_Multiply
+             [(_Constant (_div (count terms)))
+              (_HarmMean terms)
+              (_HarmMean terms)
+              (_Add (map #(_Divide [%2 %1 %1]) terms terms-diff))])]
+          )
 
-(defn geom-mean-diff [terms, terms-diff]
-  (Multiply
-    (Constant (_div (count terms)))
-    (apply GeomMean terms)
-    (apply Add (map #(Divide %2 %1) terms terms-diff))))
+(defclass _Bool-operation
+          _Left-operation
+          []
+          [evaluate [args-map]
+           (apply _eval-func this (map #(int-bool-int (_evaluate % args-map)) (_terms this)))]
+          )
+(defclass _Right-operation
+          _Left-operation
+          []
+          [toStringInfix []
+           (let [rev (reverse (_terms this)) l (first rev) h (rest rev) op (_op this)]
+             (reduce #(str "(" (_toStringInfix %2) " " op " " %1 ")") (_toStringInfix l) h))]
+          )
 
-(defn harm-mean-diff [terms, terms-diff]
-  (Multiply
-    (Constant (_div (count terms)))
-    (apply HarmMean terms)
-    (apply HarmMean terms)
-    (apply Add (map #(Divide %2 %1 %1) terms terms-diff))))
+(defclass _And
+          _Bool-operation
+          []
+          [op [] "&&"]
+          [eval-func [& args] (apply bit-and args)]
+          )
+(defclass _Or
+          _Bool-operation
+          []
+          [op [] "||"]
+          [eval-func [& args] (apply bit-or args)]
+          )
+(defclass _Xor
+          _Bool-operation
+          []
+          [op [] "^^"]
+          [eval-func [& args] (apply bit-xor args)]
+          )
+(defclass _Iff
+          _Bool-operation
+          []
+          [op [] "<->"]
+          [eval-func [& args] (bool-int (apply == args))]
+          )
+(defclass _Impl
+          _Right-operation
+          []
+          [op [] "->"]
+          [eval-func [& args] (reduce #(if (and (> %1 0) (<= %2 0)) 0 1) args)])
 
-;;------------------------------------------ Constructors -----------------------------------------
+;;------------------------------------------- Bindings --------------------------------------------
+(def const-zero (_Constant 0))
+(def const-one (_Constant 1))
+(def const-two (_Constant 2))
 
-(def-obj-expr Constant
-              (fn [this, _] (-value this))
-              (fn [_, _] const-zero)
-              (fn [this] (format "%.1f" (double (-value this)))))
+(defmacro bind-ctors [& names]
+  `(do ~@(mapv (fn [name] `(defn ~name [& terms#] (~(to-symbol name) terms#))) names)))
 
-;;~~~~~~~~~ Constants ~~~~~~~~
-(def const-zero (Constant 0))
-(def const-one (Constant 1))
-(def const-two (Constant 2))
-;;~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(defmacro bind-methods [& names]
+  `(do ~@(mapv (fn [name] `(def ~name ~(to-symbol name))) names)))
 
-(def-obj-expr Variable
-              (fn [this, args-map] (args-map (get-first this)))
-              (fn [this, var-name] (if (= (get-first this) var-name) const-one const-zero))
-              (fn [this] (-value this))
-              {:get-first (fn [this] (str (Character/toLowerCase (char (nth (-value this) 0)))))})
-
-(def-obj-un-oper Negate "negate" - neg-diff)
-
-(def-obj-oper Add "+" + add-diff)
-(def-obj-oper Subtract "-" - sub-diff)
-(def-obj-oper Multiply "*" * mul-diff)
-(def-obj-oper Divide "/" _div div-diff)
-
-(def-obj-oper ArithMean "arith-mean" _arith-mean arith-mean-diff)
-(def-obj-oper GeomMean "geom-mean" _geom-mean geom-mean-diff)
-(def-obj-oper HarmMean "harm-mean" _harm-mean harm-mean-diff)
-
-(def-obj-bool-oper And "&&" bit-and nil)
-(def-obj-bool-oper Or "||" bit-or nil)
-(def-obj-bool-oper Xor "^^" bit-xor nil)
-(def-obj-bool-oper Iff "<->" #(bool-int (apply == %&)) nil)
-(def-obj-right-assoc Impl "->" (fn [& xs] (reduce #(if (and (> %1 0) (<= %2 0)) 0 1) xs)) nil)
+(def Constant _Constant)
+(def Variable _Variable)
+(bind-ctors Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean And Or Xor Iff Impl)
+(bind-methods evaluate diff toString toStringSuffix toStringInfix)
 
 ;;--------------------------------------------- Parser --------------------------------------------
 
@@ -341,6 +331,7 @@
             )
 
 (def get-ctor (comp :ctor obj-op-map))
+(defn left-assoc? [str-op] (:left-assoc (obj-op-map (symbol str-op))))
 
 (def parseObject (create-parser obj-var-map, get-ctor, Constant))
 
@@ -378,8 +369,6 @@
            *unary-op (+seqf #(%1 %2) (*spec-op unary-ops) (delay *element))
 
            *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( (*level 0) \))) *ws)
-
-           (left-assoc? [str-op] (:left-assoc (obj-op-map (symbol str-op))))
 
            (*spec-op [ops]
                      (+map (comp get-ctor symbol)
