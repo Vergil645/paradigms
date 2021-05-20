@@ -272,6 +272,7 @@
           [eval-func [& args] (reduce #(if (and (> %1 0) (<= %2 0)) 0 1) args)])
 
 ;;------------------------------------------- Bindings --------------------------------------------
+
 (def const-zero (Constant 0))
 (def const-one (Constant 1))
 (def const-two (Constant 2))
