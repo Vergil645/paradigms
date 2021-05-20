@@ -24,11 +24,11 @@
 
 ;;------------------------------------- Evaluate functions ----------------------------------------
 
-(defn _div
+(defn -div
   ([x] (/ 1.0 (double x)))
   ([x & xs] (/ (double x) (apply * xs))))
 
-(defn _sqr [x] (* x x))
+(defn -sqr [x] (* x x))
 
 (defn at-least-one-arg [f]
   (fn [x & xs] (apply f (cons x xs))))
@@ -38,15 +38,15 @@
   [name, func]
   `(def ~name (at-least-one-arg ~func)))
 
-(def-at-least-one-arg _mean #(_div (apply + %&) (count %&)))
-(def-at-least-one-arg _varn #(- (apply _mean (map _sqr %&)) (_sqr (apply _mean %&))))
+(def-at-least-one-arg -mean #(-div (apply + %&) (count %&)))
+(def-at-least-one-arg -varn #(- (apply -mean (map -sqr %&)) (-sqr (apply -mean %&))))
 
-(def _pow #(Math/pow %1 %2))
-(def _abs #(Math/abs (double %)))
+(def -pow #(Math/pow %1 %2))
+(def -abs #(Math/abs (double %)))
 
-(def _arith-mean _mean)
-(def-at-least-one-arg _geom-mean #(_pow (_abs (apply * %&)) (_div (count %&))))
-(def-at-least-one-arg _harm-mean #(_div (count %&) (apply + (map _div %&))))
+(def -arith-mean -mean)
+(def-at-least-one-arg -geom-mean #(-pow (-abs (apply * %&)) (-div (count %&))))
+(def-at-least-one-arg -harm-mean #(-div (count %&) (apply + (map -div %&))))
 
 ;;----------------------------------------- Expressions -------------------------------------------
 
@@ -57,10 +57,10 @@
 (def-func-oper add +)
 (def-func-oper subtract -)
 (def-func-oper multiply *)
-(def-func-oper divide _div)
+(def-func-oper divide -div)
 (def-func-oper negate -)
-(def-func-oper mean _mean)
-(def-func-oper varn _varn)
+(def-func-oper mean -mean)
+(def-func-oper varn -varn)
 
 ;;-------------------------------------------- Parser ---------------------------------------------
 
@@ -100,12 +100,10 @@
 (defn bool-int [b] (if (true? b) 1 0))
 
 ;;----------------------------------------- Declarations ------------------------------------------
-(declare _Constant _Variable _Negate _Add _Subtract _Multiply _Divide
-         _ArithMean _GeomMean _HarmMean)
 
-(declare const-zero const-one const-two)
-
+(declare _Negate _Add _Subtract _Multiply _Divide _ArithMean _GeomMean _HarmMean)
 (declare Constant Variable Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean)
+(declare const-zero const-one const-two)
 
 ;;-------------------------------------- Object's factories ---------------------------------------
 
@@ -114,30 +112,28 @@
           [value]
           [toString [] (_value this)]
           [toStringSuffix [] (_toString this)]
-          [toStringInfix [] (_toString this)]
-          )
+          [toStringInfix [] (_toString this)])
 
-(defclass _Constant
+(defclass Constant
           _Expression
           []
           [evaluate [_] (_value this)]
           [diff [_] const-zero]
-          [toString [] (format "%.1f" (double (_value this)))]
-          )
-(defclass _Variable
+          [toString [] (format "%.1f" (double (_value this)))])
+
+(defclass Variable
           _Expression
           []
           [first-letter [] (str (Character/toLowerCase (char (nth (_value this) 0))))]
           [evaluate [args-map] (args-map (_first-letter this))]
-          [diff [var-name] (if (= (_first-letter this) var-name) const-one const-zero)]
-          )
+          [diff [var-name] (if (= (_first-letter this) var-name) const-one const-zero)])
 
 (defclass _Left-operation
           _
           [terms]
           [op [] nil]
           [eval-func [] nil]
-          [diff-func [terms terms-diff] nil]
+          [diff-func [_ _] nil]
           [evaluate [args-map]
            (apply _eval-func this (map #(_evaluate % args-map) (_terms this)))]
           [diff [var-name]
@@ -148,35 +144,34 @@
            (str "(" (join " " (map _toStringSuffix (_terms this))) " " (_op this) ")")]
           [toStringInfix []
            (let [f (first (_terms this)) r (rest (_terms this)) op (_op this)]
-             (reduce #(str "(" %1 " " op " " (_toStringInfix %2) ")") (_toStringInfix f) r))]
-          )
+             (reduce #(str "(" %1 " " op " " (_toStringInfix %2) ")") (_toStringInfix f) r))])
+
 (defclass _Un-operation
           _Left-operation
           []
-          [toStringInfix [] (str (_op this) "(" (_toStringInfix (first (_terms this))) ")")]
-          )
+          [toStringInfix [] (str (_op this) "(" (_toStringInfix (first (_terms this))) ")")])
 
 (defclass _Negate
           _Un-operation
           []
           [op [] "negate"]
           [eval-func [& args] (apply - args)]
-          [diff-func [terms terms-diff] (_Negate terms-diff)]
-          )
+          [diff-func [terms terms-diff] (_Negate terms-diff)])
+
 (defclass _Add
           _Left-operation
           []
           [op [] "+"]
           [eval-func [& args] (apply + args)]
-          [diff-func [terms terms-diff] (_Add terms-diff)]
-          )
+          [diff-func [terms terms-diff] (_Add terms-diff)])
+
 (defclass _Subtract
           _Left-operation
           []
           [op [] "-"]
           [eval-func [& args] (apply - args)]
-          [diff-func [terms terms-diff] (_Subtract terms-diff)]
-          )
+          [diff-func [terms terms-diff] (_Subtract terms-diff)])
+
 (defclass _Multiply
           _Left-operation
           []
@@ -184,95 +179,92 @@
           [eval-func [& args] (apply * args)]
           [diff-func [terms terms-diff]
            (second (reduce (fn [[f df] [g dg]]
-                             [(_Multiply [f g])
-                              (_Add [(_Multiply [f dg]) (_Multiply [df g])])])
-                           (map vector terms terms-diff)))]
-          )
+                             [(Multiply f g)
+                              (Add (Multiply f dg) (Multiply df g))])
+                           (map vector terms terms-diff)))])
+
 (defclass _Divide
           _Left-operation
           []
           [op [] "/"]
-          [eval-func [& args] (apply _div args)]
+          [eval-func [& args] (apply -div args)]
           [diff-func [terms terms-diff]
            (if (== (count terms) 1)
-             (_Negate [(_Divide [(first terms-diff) (first terms) (first terms)])])
-             (_Subtract
-               [(_Divide (cons (first terms-diff) (rest terms)))
-                (_Multiply
-                  [(_Divide terms)
-                   (_Add (map Divide (rest terms-diff) (rest terms)))])]))]
-          )
+             (Negate (Divide (first terms-diff) (first terms) (first terms)))
+             (Subtract
+               (apply Divide (first terms-diff) (rest terms))
+               (Multiply
+                 (_Divide terms)
+                 (_Add (mapv Divide (rest terms-diff) (rest terms))))))])
 
 (defclass _ArithMean
           _Left-operation
           []
           [op [] "arith-mean"]
-          [eval-func [& args] (apply _arith-mean args)]
+          [eval-func [& args] (apply -arith-mean args)]
           [diff-func [terms terms-diff]
-           (_Multiply [(_Add terms-diff) (_Constant (_div (count terms)))])]
-          )
+           (Multiply (_Add terms-diff) (Constant (-div (count terms))))])
+
 (defclass _GeomMean
           _Left-operation
           []
           [op [] "geom-mean"]
-          [eval-func [& args] (apply _geom-mean args)]
+          [eval-func [& args] (apply -geom-mean args)]
           [diff-func [terms terms-diff]
-           (_Multiply
-             [(_Constant (_div (count terms)))
-              (_GeomMean terms)
-              (_Add (map #(_Divide [%2 %1]) terms terms-diff))])]
-          )
+           (Multiply
+             (Constant (-div (count terms)))
+             (_GeomMean terms)
+             (_Add (map #(Divide %2 %1) terms terms-diff)))])
+
 (defclass _HarmMean
           _Left-operation
           []
           [op [] "harm-mean"]
-          [eval-func [& args] (apply _harm-mean args)]
+          [eval-func [& args] (apply -harm-mean args)]
           [diff-func [terms terms-diff]
-           (_Multiply
-             [(_Constant (_div (count terms)))
-              (_HarmMean terms)
-              (_HarmMean terms)
-              (_Add (map #(_Divide [%2 %1 %1]) terms terms-diff))])]
-          )
+           (Multiply
+             (Constant (-div (count terms)))
+             (_HarmMean terms)
+             (_HarmMean terms)
+             (_Add (map #(Divide %2 %1 %1) terms terms-diff)))])
 
 (defclass _Bool-operation
           _Left-operation
           []
           [evaluate [args-map]
-           (apply _eval-func this (map #(int-bool-int (_evaluate % args-map)) (_terms this)))]
-          )
+           (apply _eval-func this (map #(int-bool-int (_evaluate % args-map)) (_terms this)))])
+
 (defclass _Right-operation
           _Left-operation
           []
           [toStringInfix []
            (let [rev (reverse (_terms this)) l (first rev) h (rest rev) op (_op this)]
-             (reduce #(str "(" (_toStringInfix %2) " " op " " %1 ")") (_toStringInfix l) h))]
-          )
+             (reduce #(str "(" (_toStringInfix %2) " " op " " %1 ")") (_toStringInfix l) h))])
 
 (defclass _And
           _Bool-operation
           []
           [op [] "&&"]
-          [eval-func [& args] (apply bit-and args)]
-          )
+          [eval-func [& args] (apply bit-and args)])
+
 (defclass _Or
           _Bool-operation
           []
           [op [] "||"]
-          [eval-func [& args] (apply bit-or args)]
-          )
+          [eval-func [& args] (apply bit-or args)])
+
 (defclass _Xor
           _Bool-operation
           []
           [op [] "^^"]
-          [eval-func [& args] (apply bit-xor args)]
-          )
+          [eval-func [& args] (apply bit-xor args)])
+
 (defclass _Iff
           _Bool-operation
           []
           [op [] "<->"]
-          [eval-func [& args] (bool-int (apply == args))]
-          )
+          [eval-func [& args] (bool-int (apply == args))])
+
 (defclass _Impl
           _Right-operation
           []
@@ -280,9 +272,9 @@
           [eval-func [& args] (reduce #(if (and (> %1 0) (<= %2 0)) 0 1) args)])
 
 ;;------------------------------------------- Bindings --------------------------------------------
-(def const-zero (_Constant 0))
-(def const-one (_Constant 1))
-(def const-two (_Constant 2))
+(def const-zero (Constant 0))
+(def const-one (Constant 1))
+(def const-two (Constant 2))
 
 (defmacro bind-ctors [& names]
   `(do ~@(mapv (fn [name] `(defn ~name [& terms#] (~(to-symbol name) terms#))) names)))
@@ -290,8 +282,6 @@
 (defmacro bind-methods [& names]
   `(do ~@(mapv (fn [name] `(def ~name ~(to-symbol name))) names)))
 
-(def Constant _Constant)
-(def Variable _Variable)
 (bind-ctors Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean And Or Xor Iff Impl)
 (bind-methods evaluate diff toString toStringSuffix toStringInfix)
 
