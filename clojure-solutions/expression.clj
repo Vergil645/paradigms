@@ -371,6 +371,7 @@
                          (if is-left-assoc
                            (rec (ctor expr-1 expr-2) tail)
                            (ctor expr-1 (rec expr-2 tail))))))
+
            (*level [lvl]
                    (if (== lvl element-lvl)
                      (delay *element)
@@ -382,37 +383,3 @@
            *parseObjectInfix (*level 0))
 
 ;;=================================================================================================
-
-;(make-left [expr-1, [[ctor expr-2], & tail]]
-;           (if (empty? tail)
-;             (if ctor (ctor expr-1 expr-2) expr-1)
-;             (make-left (ctor expr-1 expr-2) tail)))
-;(make-right [expr-1, [[ctor expr-2], & tail]]
-;            (if (empty? tail)
-;              (if ctor (ctor expr-1 expr-2) expr-1)
-;              (ctor expr-1 (make-right expr-2 tail))))
-
-;(defparser parseObjectInfix
-;           oper-levels [["<->"] ["->"] ["^^"] ["||"] ["&&"] ["+" "-"] ["*" "/"]]
-;           element-lvl (count oper-levels)
-;           (make-left-assoc [val-1, [[ctor val-2], & tail]]
-;                            (if (empty? tail)
-;                              (ctor val-1 val-2)
-;                              (make-left-assoc (ctor val-1 val-2) tail)))
-;           (*left-assoc [*operator, *next-level]
-;                        (+seqf make-left-assoc
-;                               *next-level
-;                               (+plus (+seq *operator (*left-assoc [*operator, *next-level])))))
-;           (*level [lvl]
-;                   (if (== lvl element-lvl)
-;                     *element
-;                     (let [is-left-assoc (:left-assoc (obj-op-map (first (oper-levels lvl))))
-;                           *next-level (*level (inc lvl))
-;                           *operator (*spec-op (oper-levels lvl))]
-;                       (+or (if is-left-assoc
-;                              (*left-assoc *operator *next-level)
-;                              (*right-assoc *operator *next-level))
-;                            *element))
-;                     ))
-;           *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( (*level 0) \))) *ws)
-;           *parseObjectInfix (*level 0))
