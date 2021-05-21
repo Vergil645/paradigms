@@ -8,7 +8,7 @@ init_loop(MAX_N, I) :- I1 is I + 1, init_loop(MAX_N, I1).
 prime(N) :- \+ composite(N).
 
 % Composite
-composite(N) :- primes_table(X), X =< sqrt(N), 0 is N mod X, !.
+composite(N) :- primes_table(X), X =< sqrt(N), 0 is N mod X.
 
 % Divisors (N is number)
 prime_divisors(N, Divisors) :- number(N), !, make_divisors(N, 2, Divisors).
@@ -22,10 +22,14 @@ prime_divisors(N, Divisors) :- nonvar(Divisors), !, make_number(N, 1, Divisors),
 make_number(N, N, []).
 make_number(N, R, [X | Tail]) :- R1 is R * X, make_number(N, R1, Tail).
 
-% GCD
-gcd(A, B, GCD) :- prime_divisors(A, DA), prime_divisors(B, DB), lists_intersection(DA, DB, L), make_number(GCD, 1, L), !.
-lists_intersection([], _, []) :- !.
-lists_intersection(_, [], []) :- !.
-lists_intersection([X | TX], [X | TY], [X | T]) :- lists_intersection(TX, TY, T), !.
-lists_intersection([X | TX], [Y | TY], L) :- X > Y, !, lists_intersection([X | TX], TY, L).
-lists_intersection([X | TX], [Y | TY], L) :- lists_intersection(TX, [Y | TY], L), !.
+% Prime index (P - number)
+prime_index(P, N) :- number(P), !, prime(P), loop_1(P, 2, N).
+loop_1(P, P, 1) :- !.
+loop_1(P, X, N) :- prime(X), !, X1 is X + 1, loop_1(P, X1, N1), N is N1 + 1.
+loop_1(P, X, N) :- X1 is X + 1, loop_1(P, X1, N), !.
+
+% Prime index (N - number)
+prime_index(P, N) :- number(N), !, loop_2(N, 2, P).
+loop_2(0, X, P) :- P is X - 1, !.
+loop_2(N, X, P) :- prime(X), !, X1 is X + 1, N1 is N - 1, loop_2(N1, X1, P).
+loop_2(N, X, P) :- X1 is X + 1, loop_2(N, X1, P), !.
