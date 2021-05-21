@@ -8,32 +8,25 @@ init_loop(MAX_N, I) :- I1 is I + 1, init_loop(MAX_N, I1).
 prime(N) :- \+ composite(N).
 
 % Composite
-% :NOTE: X =< sqrt(N),
-composite(N) :- primes_table(X), X =< sqrt(N), 0 is N mod X.
+composite(N) :- primes_table(X), 0 is N mod X, X * X =< N.
 
-% Divisors (N is number)
+% Divisors
 prime_divisors(N, Divisors) :- number(N), !, make_divisors(N, 2, Divisors).
-% :NOTE: Лишняя работа
-prime_divisors(N, Divisors) :- ground(Divisors), !, make_number(N, 1, Divisors), prime_divisors(N, Divisors).
+prime_divisors(N, Divisors) :- ground(Divisors), !, make_number(N, 1, Divisors).
 
 make_divisors(1, _, []).
 make_divisors(N, X, [N]) :- X =< N, prime(N), !.
 make_divisors(N, X, [X | Tail]) :- 0 is mod(N, X), !, N1 is N / X, make_divisors(N1, X, Tail).
 make_divisors(N, X, Divisors) :- X < N, X1 is X + 1, !, make_divisors(N, X1, Divisors).
 
-% Divisors (Divisors is not variable)
 make_number(N, N, []).
-make_number(N, R, [X | Tail]) :- R1 is R * X, make_number(N, R1, Tail).
+make_number(N, R, [X]) :- prime(X), N is R * X.
+make_number(N, R, [X, Y | Tail]) :- X =< Y, prime(X), R1 is R * X, make_number(N, R1, [Y | Tail]).
 
-% Prime index (P - number)
-% :NOTE: Упростить
-prime_index(P, N) :- number(P), !, prime(P), loop_1(P, 2, N).
-loop_1(P, P, 1) :- !.
-loop_1(P, X, N) :- prime(X), !, X1 is X + 1, loop_1(P, X1, N1), N is N1 + 1.
-loop_1(P, X, N) :- X1 is X + 1, loop_1(P, X1, N), !.
+% Prime index
+prime_index(P, N) :- index_loop(P, N, 2, 0).
 
-% Prime index (N - number)
-prime_index(P, N) :- number(N), !, loop_2(N, 2, P).
-loop_2(0, X, P) :- P is X - 1, !.
-loop_2(N, X, P) :- prime(X), !, X1 is X + 1, N1 is N - 1, loop_2(N1, X1, P).
-loop_2(N, X, P) :- X1 is X + 1, loop_2(N, X1, P), !.
+index_loop(P, N, X, C) :- N == C, !, P is X - 1.
+index_loop(P, N, X, C) :- P == X, !, prime(P), N is C + 1.
+index_loop(P, N, X, C) :- prime(X), !, X1 is X + 1, C1 is C + 1, index_loop(P, N, X1, C1).
+index_loop(P, N, X, C) :- X1 is X + 1, index_loop(P, N, X1, C).
