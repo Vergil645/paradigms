@@ -13,12 +13,12 @@
   [name, func]
   `(def ~name (create-operation ~func)))
 
-(defn create-parser [var-map get-op const]
+(defn create-parser [var-map get-ctor const]
   (letfn [(parse-element [elem]
             (cond
               (number? elem) (const elem)
               (contains? var-map elem) (var-map elem)
-              (list? elem) (apply (get-op (first elem)) (mapv parse-element (rest elem)))))]
+              (list? elem) (apply (get-ctor (first elem)) (mapv parse-element (rest elem)))))]
     (fn [expr]
       (parse-element (read-string expr)))))
 
@@ -131,6 +131,7 @@
 (defclass _Left-operation
           _
           [terms]
+          [assoc [] 'left]
           [op [] nil]
           [eval-func [] nil]
           [diff-func [_ _] nil]
@@ -237,6 +238,7 @@
 (defclass _Right-operation
           _Left-operation
           []
+          [assoc [] 'right]
           [toStringInfix []
            (let [rev (reverse (_terms this)) l (first rev) h (rest rev) op (_op this)]
              (reduce #(str "(" (_toStringInfix %2) " " op " " %1 ")") (_toStringInfix l) h))])
@@ -295,34 +297,16 @@
    'z (Variable "z")
    })
 
-(defn make-map
-  ([ctor] (make-map ctor :left-assoc))
-  ([ctor & flags] (reduce #(assoc %1 %2 true) {:ctor ctor} flags)))
-
 (defmacro def-op-map
-  "Defines operations map"
-  [name & terms]
-  (let [res-map (reduce #(assoc %1 `(symbol ~(first %2)) (apply make-map (rest %2))) {} terms)]
+  "Defines operations map: operator (str) -> constructor"
+  [name & ctors]
+  (let [res-map (reduce #(assoc %1 `(_op ~(symbol (str "_" %2 "_proto"))) %2) {} ctors)]
     `(def ~name ~res-map)))
 
 (def-op-map obj-op-map
-            ["+" Add]
-            ["-" Subtract]
-            ["*" Multiply]
-            ["/" Divide]
-            ["negate" Negate]
-            ["arith-mean" ArithMean]
-            ["geom-mean" GeomMean]
-            ["harm-mean" HarmMean]
-            ["^^" Xor]
-            ["||" Or]
-            ["&&" And]
-            ["<->" Iff]
-            ["->" Impl :right-assoc]
-            )
+            Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean And Or Xor Iff Impl)
 
-(def get-ctor (comp :ctor obj-op-map))
-(defn left-assoc? [str-op] (:left-assoc (obj-op-map (symbol str-op))))
+(def get-ctor (comp obj-op-map str))
 
 (def parseObject (create-parser obj-var-map, get-ctor, Constant))
 
@@ -340,11 +324,31 @@
 (defn is-letter [ch] (Character/isLetter (char ch)))
 (defn is-whitespace [ch] (Character/isWhitespace (char ch)))
 
+(defmacro def-ctor-map
+  "Defines constructors map: constructor -> prototype"
+  [name & ctors]
+  (let [res-map (reduce #(assoc %1 %2 (symbol (str "_" %2 "_proto"))) {} ctors)]
+    `(def ~name ~res-map)))
+
+(def-ctor-map obj-ctor-map
+              Negate Add Subtract Multiply Divide ArithMean GeomMean HarmMean And Or Xor Iff Impl)
+
+(defn left-assoc? [ctor] (= (_assoc (obj-ctor-map ctor)) 'left))
+
+(defn get-op [ctor] (_op (obj-ctor-map ctor)))
+
+(defn make-obj [is-left-assoc]
+  (fn rec [expr-1, [[ctor expr-2] & tail]]
+    (if (empty? tail)
+      (if ctor (ctor expr-1 expr-2) expr-1)
+      (if is-left-assoc
+        (rec (ctor expr-1 expr-2) tail)
+        (ctor expr-1 (rec expr-2 tail))))))
+
 ;;----------------------------------------- Infix parser ------------------------------------------
 (defparser parseObjectInfix
-           oper-levels [["<->"] ["->"] ["^^"] ["||"] ["&&"] ["+", "-"] ["*", "/"]]
-           unary-ops ["negate"]
-           element-lvl (count oper-levels)
+           oper-levels [[Multiply Divide] [Add Subtract] [And] [Or] [Xor] [Impl] [Iff]]
+           unary-ops [Negate]
 
            all-chars (apply str (mapv char (range 0 128)))
            spaces (apply str (filter is-whitespace all-chars))
@@ -357,30 +361,24 @@
                           (+opt (+char "-")) *integer (+opt (+seqf str (+char ".") *integer)))
 
            *variable (+map Variable (+str (+plus (+char "xyzXYZ"))))
-           *unary-op (+seqf #(%1 %2) (*spec-op unary-ops) (delay *element))
+           *unary-op (+seqf #(%1 %2) (+ctor unary-ops) (delay *element))
 
-           *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( (*level 0) \))) *ws)
+           *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( *expression \))) *ws)
 
-           (*spec-op [ops]
-                     (+map (comp get-ctor symbol)
-                           (apply +or (map #(apply +seqf str (map (comp +char str) %)) ops))))
+           (+ctor [ctors]
+                  (+map obj-op-map
+                        (apply +or (map #(apply +seqf str (map (comp +char str) (get-op %)))
+                                        ctors))))
 
-           (make-obj [is-left-assoc]
-                     (fn rec [expr-1, [[ctor expr-2] & tail]]
-                       (if (empty? tail)
-                         (if ctor (ctor expr-1 expr-2) expr-1)
-                         (if is-left-assoc
-                           (rec (ctor expr-1 expr-2) tail)
-                           (ctor expr-1 (rec expr-2 tail))))))
+           (+operation [is-left ctors *next]
+                       (+seqf (make-obj is-left)
+                              *next
+                              (+star (+seq (+ctor ctors) *next))))
 
-           (*level [lvl]
-                   (if (== lvl element-lvl)
-                     (delay *element)
-                     (let [*next-level (*level (inc lvl))]
-                       (+seqf (make-obj (left-assoc? (first (oper-levels lvl))))
-                              *next-level
-                              (+star (+seq (*spec-op (oper-levels lvl)) *next-level))))))
+           *expression (reduce #(+operation (left-assoc? (first %2)) %2 %1)
+                               (delay *element)
+                               oper-levels)
 
-           *parseObjectInfix (*level 0))
+           *parseObjectInfix *expression)
 
 ;;=================================================================================================
