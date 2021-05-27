@@ -1,68 +1,60 @@
 % Create node
-create_node(K, V, Node) :-
-	rand_int(1000000007, P),
-	Node = node(K, V, P, null, null).
+create_node(K, V, node(K, V, 1, 0, null, null)).
+
+create_node(K, V, L, R, Node) :-
+	get_height(L, LH),
+	get_height(R, RH),
+	(LH > RH -> H is LH + 1 ; H is RH + 1),
+	D is LH - RH,
+	Node = node(K, V, H, D, L, R).
+
+get_height(null, 0).
+get_height(node(_, _, H, _, _, _), H).
+
+get_diff(null, 0).
+get_diff(node(_, _, _, D, _, _), D).
 
 
-% Split
-split(null, _, null, null).
+% Small rotation
+small_left_rotation(node(K, V, _, _, L, node(RK, RV, _, _, RL, RR)), Node) :-
+	create_node(K, V, L, RL, NewRL),
+	create_node(RK, RV, NewRL, RR, Node).
 
-split(node(K, V, P, L, R), X, Node1, Node2) :-
-	K =< X,
-	!, split(R, X, NewR, Node2),
-	Node1 = node(K, V, P, L, NewR).
-	
-split(node(K, V, P, L, R), X, Node1, Node2) :-
-	split(L, X, Node1, NewL),
-	Node2 = node(K, V, P, NewL, R).
+small_right_rotation(node(K, V, _, _, node(LK, LV, _, _, LL, LR), R), Node) :-
+	create_node(K, V, LR, R, NewLR),
+	create_node(LK, LV, LL, NewLR, Node).
 
 
-% Merge
-merge(T1, null, T1) :- !.
-merge(null, T2, T2).
+% Big rotation
+big_left_rotation(node(K, V, _, _, L, R), Node) :-
+	small_right_rotation(R, NewR),
+	create_node(K, V, L, NewR, Tmp),
+	small_left_rotation(Tmp, Node).
 
-merge(node(K1, V1, P1, L1, R1), node(K2, V2, P2, L2, R2), Node) :-
-	P1 > P2, 
-	!, merge(R1, node(K2, V2, P2, L2, R2), NewR1),
-	Node = node(K1, V1, P1, L1, NewR1).
-
-merge(node(K1, V1, P1, L1, R1), node(K2, V2, P2, L2, R2), Node) :-
-	merge(node(K1, V1, P1, L1, R1), L2, NewL2),
-	Node = node(K2, V2, P2, NewL2, R2).
+big_right_rotation(node(K, V, _, _, L, R), Node) :-
+	small_left_rotation(L, NewL),
+	create_node(K, V, NewL, R, Tmp),
+	small_right_rotation(Tmp, Node).
 
 
-% Map get
-map_get(node(Key, Value, _, _, _), Key, Value).
+% Balance
+balance(node(K, V, H, -2, L, R), Node) :-
+	get_diff(R, RD),
+	RD =< 0,
+	!, small_left_rotation(node(K, V, H, -2, L, R), Node).
 
-map_get(node(K, V, _, L, _), Key, Value) :-
-	Key < K, 
-	!, map_get(L, Key, Value).
+balance(node(K, V, H, -2, L, R), Node) :-
+	!, big_left_rotation(node(K, V, H, -2, L, R), Node).
 
-map_get(node(K, V, _, _, R), Key, Value) :-
-	map_get(R, Key, Value).
+balance(node(K, V, H, 2, L, R), Node) :-
+	get_diff(L, LD),
+	LD >= 0,
+	!, small_right_rotation(node(K, V, H, 2, L, R), Node).
 
+balance(node(K, V, H, 2, L, R), Node) :-
+	!, big_right_rotation(node(K, V, H, 2, L, R), Node).
 
-% Map put
-map_put(TreeMap, Key, Value, Result) :- 
-	map_get(TreeMap, Key, _), 
-	!, set_node(TreeMap, Key, Value, Result).
-
-map_put(TreeMap, Key, Value, Result) :-
-	create_node(Key, Value, Node), 
-	split(TreeMap, Key, T1, T2), 
-	merge(T1, Node, Tmp),
-	merge(Tmp, T2, Result).
-
-set_node(node(Key, _, P, L, R), Key, Value, node(Key, Value, P, L, R)).
-
-set_node(node(K, V, P, L, R), Key, Value, Node) :-
-	Key < K, 
-	!, set_node(L, Key, Value, NewL), 
-	Node = node(K, V, P, NewL, R).
-
-set_node(node(K, V, P, L, R), Key, Value, Node) :-
-	set_node(R, Key, Value, NewR), 
-	Node = node(K, V, P, L, NewR).
+balance(Node, Node).
 
 
 % Map build
@@ -75,11 +67,71 @@ build_loop([(Key, Value) | Tail], T, TreeMap) :-
 	build_loop(Tail, T1, TreeMap).
 
 
+% Map get
+map_get(node(Key, Value, _, _, _, _), Key, Value).
+
+map_get(node(K, _, _, _, L, _), Key, Value) :-
+	Key < K, 
+	!, map_get(L, Key, Value).
+
+map_get(node(_, _, _, _, _, R), Key, Value) :-
+	map_get(R, Key, Value).
+
+
+% Map put
+map_put(null, Key, Value, Node) :- create_node(Key, Value, Node).
+
+map_put(node(Key, _, H, D, L, R), Key, Value, node(Key, Value, H, D, L, R)) :- !.
+
+map_put(node(K, V, _, _, L, R), Key, Value, Node) :-
+	Key < K, 
+	!, map_put(L, Key, Value, NewL), 
+	create_node(K, V, NewL, R, Node1),
+	balance(Node1, Node).
+
+map_put(node(K, V, _, _, L, R), Key, Value, Node) :-
+	map_put(R, Key, Value, NewR),
+	create_node(K, V, L, NewR, Node1), 
+	balance(Node1, Node).
+
+
 % Map remove
 map_remove(TreeMap, Key, TreeMap) :- not map_get(TreeMap, Key, _), !.
 
-map_remove(TreeMap, Key, Result) :-
-	split(TreeMap, Key, Tmp, T2),
-	Key1 is Key - 1,
-	split(Tmp, Key1, T1, _),
-	merge(T1, T2, Result).
+map_remove(TreeMap, Key, Result) :- remove(TreeMap, Key, Result).
+
+remove(node(Key, _, _, _, null, null), Key, null) :- !.
+
+remove(node(Key, _, _, D, L, R), Key, Node) :- 
+	D >= 0, 
+	!, map_get_max(L, NewK, NewV), 
+	remove(L, NewK, NewL), 
+	create_node(NewK, NewV, NewL, R, Node1), 
+	balance(Node1, Node).
+
+remove(node(Key, _, _, D, L, R), Key, Node) :- 
+	!, map_get_min(R, NewK, NewV), 
+	remove(R, NewK, NewR), 
+	create_node(NewK, NewV, L, NewR, Node1), 
+	balance(Node1, Node).
+
+remove(node(K, V, _, _, L, R), Key, Node) :- 
+	Key < K, 
+	!, remove(L, Key, NewL), 
+	create_node(K, V, NewL, R, Node1),
+	balance(Node1, Node).
+
+remove(node(K, V, _, _, L, R), Key, Node) :-
+	remove(R, Key, NewR),
+	create_node(K, V, L, NewR, Node1), 
+	balance(Node1, Node).
+
+
+% Map get max
+map_get_max(node(K, V, _, _, _, null), K, V) :- !.
+map_get_max(node(_, _, _, _, _, R), MaxK, MaxV) :- map_get_max(R, MaxK, MaxV).
+
+
+% Map get min
+map_get_min(node(K, V, _, _, null, _), K, V) :- !.
+map_get_min(node(_, _, _, _, L, _), MinK, MinV) :- map_get_min(L, MinK, MinV).
