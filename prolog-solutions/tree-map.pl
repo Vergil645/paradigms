@@ -135,3 +135,67 @@ map_get_max(node(_, _, _, _, _, R), MaxK, MaxV) :- map_get_max(R, MaxK, MaxV).
 % Map get min
 map_get_min(node(K, V, _, _, null, _), K, V) :- !.
 map_get_min(node(_, _, _, _, L, _), MinK, MinV) :- map_get_min(L, MinK, MinV).
+
+
+% Merge
+merge(T1, null, T1) :- !.
+merge(null, T2, T2) :- !.
+
+merge(T1, T2, T) :-
+	get_height(T1, H1), 
+	get_height(T2, H2), 
+	H1 =< H2, 
+	!, map_get_max(T1, SK, SV),
+	remove(T1, SK, NewT1),
+	merge_to_right(NewT1, T2, SK, SV, T).
+
+merge(T1, T2, T) :- 
+	map_get_min(T2, SK, SV),
+	remove(T2, SK, NewT2),
+	merge_to_left(T1, NewT2, SK, SV, T).
+
+merge_to_right(T1, T2, SK, SV, Node) :-
+	get_height(T1, H1), 
+	get_height(T2, H2), 
+	H1 >= H2,
+	!, create_node(SK, SV, T1, T2, Node1),
+	balance(Node1, Node).
+
+merge_to_right(T1, node(K2, V2, _, _, L, R), SK, SV, Node) :-
+	merge_to_right(T1, L, SK, SV, NewL),
+	create_node(K2, V2, NewL, R, Node1),
+	balance(Node1, Node).
+
+merge_to_left(T1, T2, SK, SV, Node) :-
+	get_height(T1, H1), 
+	get_height(T2, H2), 
+	H1 =< H2,
+	!, create_node(SK, SV, T1, T2, Node1), 
+	balance(Node1, Node).
+
+merge_to_left(node(K1, V1, _, _, L, R), T2, SK, SV, Node) :-
+	merge_to_left(R, T2, SK, SV, NewR),
+	create_node(K1, V1, L, NewR, Node1),
+	balance(Node1, Node).
+
+
+% Split
+split(null, _, null, null).
+
+split(node(K, V, _, _, L, R), X, Node1, Node2) :-
+	K =< X, 
+	!, split(R, X, T1, Node2), 
+	special_merge(L, T1, K, V, Node1).
+
+split(node(K, V, _, _, L, R), X, Node1, Node2) :-
+	split(L, X, Node1, T2),
+	special_merge(T2, R, K, V, Node2).
+
+special_merge(T1, T2, SK, SV, Node) :- 
+	get_height(T1, H1), 
+	get_height(T2, H2), 
+	H1 =< H2, 
+	!, merge_to_right(T1, T2, SK, SV, Node).
+
+special_merge(T1, T2, SK, SV, Node) :-
+	merge_to_left(T1, T2, SK, SV, Node).
