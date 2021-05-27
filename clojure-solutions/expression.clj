@@ -366,9 +366,8 @@
            *element (+seqn 0 *ws (+or *number *variable *unary-op (+seqn 1 \( *expression \))) *ws)
 
            (+ctor [ctors]
-                  (+map obj-op-map
-                        (apply +or (map #(apply +seqf str (map (comp +char str) (get-op %)))
-                                        ctors))))
+                  (apply +or (map #(apply +seqf (fn [& _] %) (map (comp +char str) (get-op %)))
+                                  ctors)))
 
            (+operation [is-left ctors *next]
                        (+seqf (make-obj is-left)
