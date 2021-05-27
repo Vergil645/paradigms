@@ -21,13 +21,17 @@ create_node(Son1, Son2, Son3, node3(Max, Key1, Key2, Son1, Son2, Son3)) :-
 	get_max(Son2, Key2).
 
 create_node(Son1, Son2, Son3, null, Node1, null) :- 
-	create_node(Son1, Son2, Son3, Node1).
+	!, create_node(Son1, Son2, Son3, Node1).
 
 create_node(Son1, Son2, null, Son4, Node1, null) :- 
-	create_node(Son1, Son2, Son4, Node1).
+	!, create_node(Son1, Son2, Son4, Node1).
 
 create_node(Son1, null, Son3, Son4, Node1, null) :- 
-	create_node(Son1, Son3, Son4, Node1).
+	!, create_node(Son1, Son3, Son4, Node1).
+
+create_node(Son1, Son2, Son3, Son4, Node1, Node2) :-
+	create_node(Son1, Son2, null, Node1),
+	create_node(Son3, Son4, null, Node2).
 
 
 % TreeMap constructors
@@ -132,36 +136,19 @@ tree_add(node2(Max, Key1, Son1, Son2), Key, Value, NewNode, null) :-
 	tree_add(Son1, Key, Value, NewSon1, NewSon2),
 	create_node(NewSon1, NewSon2, Son2, NewNode).
 
-tree_add(node3(Max, Key1, Key2, Son1, Son2, Son3), Key, Value, NewNode, null) :- 
-	Key2 < Key, 
-	tree_add(Son3, Key, Value, NewSon3, null), 
-	!, create_node(Son1, Son2, NewSon3, NewNode).
-
 tree_add(node3(Max, Key1, Key2, Son1, Son2, Son3), Key, Value, NewNode1, NewNode2) :- 
 	Key2 < Key, 
 	tree_add(Son3, Key, Value, NewSon3, NewSon4), 
-	!, create_node(Son1, Son2, null, NewNode1), 
-	create_node(NewSon3, NewSon4, null, NewNode2).
-	
-tree_add(node3(Max, Key1, Key2, Son1, Son2, Son3), Key, Value, NewNode, null) :- 
-	Key1 < Key, 
-	tree_add(Son2, Key, Value, NewSon2, null), 
-	!, create_node(Son1, NewSon2, Son3, NewNode).
+	!, create_node(Son1, Son2, NewSon3, NewSon4, NewNode1, NewNode2).
 
 tree_add(node3(Max, Key1, Key2, Son1, Son2, Son3), Key, Value, NewNode1, NewNode2) :- 
 	Key1 < Key, 
 	tree_add(Son2, Key, Value, NewSon2, NewSon3), 
-	!, create_node(Son1, NewSon2, null, NewNode1), 
-	create_node(NewSon3, Son3, null, NewNode2).
-	
-tree_add(node3(Max, Key1, Key2, Son1, Son2, Son3), Key, Value, NewNode, null) :- 
-	tree_add(Son1, Key, Value, NewSon1, null), 
-	!, create_node(NewSon1, Son2, Son3, NewNode).
+	!, create_node(Son1, NewSon2, NewSon3, Son3, NewNode1, NewNode2).
 
 tree_add(node3(Max, Key1, Key2, Son1, Son2, Son3), Key, Value, NewNode1, NewNode2) :- 
 	tree_add(Son1, Key, Value, NewSon1, NewSon2), 
-	create_node(NewSon1, NewSon2, null, NewNode1), 
-	create_node(Son2, Son3, null, NewNode2).
+	create_node(NewSon1, NewSon2, Son2, Son3, NewNode1, NewNode2).
 
 
 % Map build (unsorted)
@@ -177,4 +164,7 @@ build_loop([(Key, Value) | Tail], Tree, TreeMap) :-
 
 
 % Map remove
+map_remove(TreeMap, Key, TreeMap) :- not map_get(TreeMap, Key, _), !.
+map_remove(TreeMap, Key, Result) :- 
+	.
 
