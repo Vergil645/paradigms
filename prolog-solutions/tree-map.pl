@@ -279,6 +279,7 @@ special_merge(T1, T2, SK, SV, Result) :-
 
 
 % Map headMapSize
+% :NOTE: -1
 map_headMapSize(Map, ToKey, Size) :-
 	X is ToKey - 1,
 	split(Map, X, T1, _), 
