@@ -16,7 +16,7 @@ prime_divisors(N, Divisors) :- ground(Divisors), !, make_number(N, 1, Divisors).
 
 make_divisors(1, _, []) :- !.
 make_divisors(N, X, [N]) :- prime(N), !.
-make_divisors(N, X, [X | Tail]) :- 0 is mod(N, X), !, N1 is N / X, make_divisors(N1, X, Tail).
+make_divisors(N, X, [X | Tail]) :- 0 is mod(N, X), !, N1 is div(N, X), make_divisors(N1, X, Tail).
 make_divisors(N, X, Divisors) :- X1 is X + 1, make_divisors(N, X1, Divisors).
 
 make_number(N, N, []).
@@ -26,7 +26,6 @@ make_number(N, R, [X, Y | Tail]) :- X =< Y, prime(X), R1 is R * X, make_number(N
 % Prime index
 prime_index(P, N) :- index_loop(P, N, 2, 1).
 
-index_loop(P, N, X, C) :- N == C, !, P is X.
-index_loop(P, N, X, C) :- P == X, !, prime(P), N is C.
+index_loop(P, N, X, C) :- P is X, N is C, !, prime(P).
 index_loop(P, N, X, C) :- X1 is X + 1, prime(X1), !, C1 is C + 1, index_loop(P, N, X1, C1).
 index_loop(P, N, X, C) :- X1 is X + 1, index_loop(P, N, X1, C).
