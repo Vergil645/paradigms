@@ -1,30 +1,36 @@
 % Create node
-create_node(K, V, node(K, V, 1, 0, null, null)).
+create_node(K, V, node(K, V, 1, 0, 1, null, null)).
 
 create_node(K, V, L, R, Result) :-
 	get_height(L, LH),
 	get_height(R, RH),
 	(LH > RH -> H is LH + 1 ; H is RH + 1),
 	D is LH - RH,
-	Result = node(K, V, H, D, L, R).
+	get_size(L, LS),
+	get_size(R, RS),
+	S is LS + RS + 1,
+	Result = node(K, V, H, D, S, L, R).
 
-get_key(null, _) :- !, fail.
-get_key(node(K, _, _, _, _, _), K).
+%get_key(null, _) :- !, fail.
+get_key(node(K, _, _, _, _, _, _), K).
 
-get_value(null, _) :- !, fail.
-get_value(node(_, V, _, _, _, _), V).
+%get_value(null, _) :- !, fail.
+get_value(node(_, V, _, _, _, _, _), V).
 
 get_height(null, 0).
-get_height(node(_, _, H, _, _, _), H).
+get_height(node(_, _, H, _, _, _, _), H).
 
 get_diff(null, 0).
-get_diff(node(_, _, _, D, _, _), D).
+get_diff(node(_, _, _, D, _, _, _), D).
 
-get_left(null, _) :- !, fail.
-get_left(node(_, _, _, _, L, _), L).
+get_size(null, 0).
+get_size(node(_, _, _, _, S, _, _), S).
 
-get_right(null, _) :- !, fail.
-get_right(node(_, _, _, _, _, R), R).
+%get_left(null, _) :- !, fail.
+get_left(node(_, _, _, _, _, L, _), L).
+
+%get_right(null, _) :- !, fail.
+get_right(node(_, _, _, _, _, _, R), R).
 
 
 % Small rotation
@@ -270,3 +276,17 @@ special_merge(T1, T2, SK, SV, Result) :-
 
 special_merge(T1, T2, SK, SV, Result) :-
 	merge_to_left(T1, T2, SK, SV, Result).
+
+
+% Map headMapSize
+map_headMapSize(Map, ToKey, Size) :-
+	X is ToKey - 1,
+	split(Map, X, T1, _), 
+	get_size(T1, Size).
+
+
+% Map tailMapSize
+map_tailMapSize(Map, FromKey, Size) :-
+	X is FromKey - 1,
+	split(Map, X, _, T2),
+	get_size(T2, Size).

@@ -26,7 +26,6 @@ make_number(N, R, [X, Y | Tail]) :- X =< Y, prime(X), R1 is R * X, make_number(N
 % Prime index
 prime_index(P, N) :- index_loop(P, N, 2, 1).
 
-% :NOTE: Не идеоматично
 index_loop(P, N, X, C) :- N == C, !, P is X.
 index_loop(P, N, X, C) :- P == X, !, prime(P), N is C.
 index_loop(P, N, X, C) :- X1 is X + 1, prime(X1), !, C1 is C + 1, index_loop(P, N, X1, C1).
