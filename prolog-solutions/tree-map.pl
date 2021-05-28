@@ -258,7 +258,7 @@ split(null, _, null, null).
 
 split(Node, X, Result1, Result2) :-
 	get_key(Node, K), 
-	K =< X, 
+	K < X, 
 	!, get_value(Node, V), get_left(Node, L), get_right(Node, R), 
 	split(R, X, T1, Result2), 
 	special_merge(L, T1, K, V, Result1).
@@ -279,15 +279,12 @@ special_merge(T1, T2, SK, SV, Result) :-
 
 
 % Map headMapSize
-% :NOTE: -1
 map_headMapSize(Map, ToKey, Size) :-
-	X is ToKey - 1,
-	split(Map, X, T1, _), 
+	split(Map, ToKey, T1, _), 
 	get_size(T1, Size).
 
 
 % Map tailMapSize
 map_tailMapSize(Map, FromKey, Size) :-
-	X is FromKey - 1,
-	split(Map, X, _, T2),
+	split(Map, FromKey, _, T2),
 	get_size(T2, Size).
