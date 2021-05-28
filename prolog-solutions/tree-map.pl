@@ -104,13 +104,13 @@ remove(node(Key, _, _, _, null, null), Key, null) :- !.
 
 remove(node(Key, _, _, D, L, R), Key, Node) :- 
 	D >= 0, 
-	!, map_get_max(L, NewK, NewV), 
+	!, map_getLast(L, (NewK, NewV)), 
 	remove(L, NewK, NewL), 
 	create_node(NewK, NewV, NewL, R, Node1), 
 	balance(Node1, Node).
 
 remove(node(Key, _, _, D, L, R), Key, Node) :- 
-	!, map_get_min(R, NewK, NewV), 
+	!, map_getFirst(R, (NewK, NewV)), 
 	remove(R, NewK, NewR), 
 	create_node(NewK, NewV, L, NewR, Node1), 
 	balance(Node1, Node).
@@ -127,14 +127,28 @@ remove(node(K, V, _, _, L, R), Key, Node) :-
 	balance(Node1, Node).
 
 
-% Map get max
-map_get_max(node(K, V, _, _, _, null), K, V) :- !.
-map_get_max(node(_, _, _, _, _, R), MaxK, MaxV) :- map_get_max(R, MaxK, MaxV).
+% Map get last
+map_getLast(node(K, V, _, _, _, null), (K, V)) :- !.
+map_getLast(node(_, _, _, _, _, R), (MaxK, MaxV)) :- map_getLast(R, (MaxK, MaxV)).
 
 
-% Map get min
-map_get_min(node(K, V, _, _, null, _), K, V) :- !.
-map_get_min(node(_, _, _, _, L, _), MinK, MinV) :- map_get_min(L, MinK, MinV).
+% Map remove last
+map_removeLast(null, null).
+map_removeLast(TreeMap, Result) :-
+	map_getLast(TreeMap, (K, _)),
+	map_remove(TreeMap, K, Result).
+
+
+% Map get first
+map_getFirst(node(K, V, _, _, null, _), (K, V)) :- !.
+map_getFirst(node(_, _, _, _, L, _), (MinK, MinV)) :- map_getFirst(L, (MinK, MinV)).
+
+
+% Map remove first
+map_removeFirst(null, null).
+map_removeFirst(TreeMap, Result) :-
+	map_getFirst(TreeMap, (K, _)),
+	map_remove(TreeMap, K, Result).
 
 
 % Merge
