@@ -8,6 +8,7 @@ lookup(K, [_ | T], V) :- lookup(K, T, V).
 
 
 % Lower case
+% :NOTE: lookup(N, [('x', 'x'), ('X', 'x'), ...], R).
 lower_case('x', 'x').
 lower_case('X', 'x').
 
