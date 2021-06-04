@@ -55,7 +55,7 @@ if_nonvar_do(V, T, G) :- (nonvar(V) -> call(T) ; call(G)).
 
 
 % Operation parser
-oper_p(op_negate)   --> ['n', 'e', 'g', 'a', 't', 'e'].
+oper_p(op_negate)   --> { atom_chars(negate, Chars) }, Chars.
 oper_p(op_add)      --> ['+'].
 oper_p(op_subtract) --> ['-'].
 oper_p(op_multiply) --> ['*'].
