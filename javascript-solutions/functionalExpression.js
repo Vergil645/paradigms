@@ -52,20 +52,3 @@ function parse(expression) {
     }
     return stack.pop();
 }
-
-// const testExpr = add(
-//     subtract(
-//         multiply(
-//             variable('x'),
-//             variable('x')
-//         ),
-//         multiply(
-//             cnst(2),
-//             variable('x')
-//         )
-//     ),
-//     cnst(1)
-// );
-// for (let x = 0; x <= 10; x++) {
-//     println(testExpr(x))
-// }
